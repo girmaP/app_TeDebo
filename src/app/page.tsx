@@ -86,6 +86,12 @@ export default function Home() {
   const [openMemberGroups, setOpenMemberGroups] = useState<Record<string, boolean>>({})
   const [openBalanceGroups, setOpenBalanceGroups] = useState<Record<string, boolean>>({})
   const [user, setUser] = useState<any>(null)
+  useEffect(() => {
+  supabase.auth.getUser().then(({ data }) => {
+    setUser(data.user)
+  })
+}, [])
+
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   type Screen = "home" | "gastos" | "balances" | "historial" | "moroso"
@@ -100,6 +106,8 @@ const [coins, setCoins] = useState([
 const [loading, setLoading] = useState(false)
 const [nombre, setNombre] = useState("")
 const [apellidos, setApellidos] = useState("")
+const [authMode, setAuthMode] = useState<"login" | "register">("login")
+
 
 
 
@@ -631,6 +639,14 @@ const [apellidos, setApellidos] = useState("")
     return (
       <main className="p-4">
         <h1 className="text-xl mb-4">Login</h1>
+        <button
+        onClick={() => setAuthMode(authMode === "login" ? "register" : "login")}
+        className="text-blue-500 mb-4">
+          {authMode === "login"
+          ? "¿No tienes cuenta? Regístrate"
+          : "¿Ya tienes cuenta? Inicia sesión"}
+          </button>
+
 
         <input
           className="border p-2 mb-2 w-full"
@@ -638,19 +654,23 @@ const [apellidos, setApellidos] = useState("")
           value={email}
           onChange={(e) => setEmail(e.target.value)}
         />
-        <input
-         className="border p-2 mb-2 w-full"
-         placeholder="Nombre"
-         value={nombre}
-         onChange={(e) => setNombre(e.target.value)}
-         />
-         <input
-  className="border p-2 mb-2 w-full"
-  placeholder="Apellidos"
-  value={apellidos}
-  onChange={(e) => setApellidos(e.target.value)}
-/>
-
+        {authMode === "register" && (
+  <input
+    className="border p-2 mb-2 w-full"
+    placeholder="Nombre"
+    value={nombre}
+    onChange={(e) => setNombre(e.target.value)}
+  />
+)}
+         
+{authMode === "register" && (
+  <input
+    className="border p-2 mb-2 w-full"
+    placeholder="Apellidos"
+    value={apellidos}
+    onChange={(e) => setApellidos(e.target.value)}
+  />
+)}
 
         <input
           className="border p-2 mb-2 w-full"
@@ -684,37 +704,58 @@ const [apellidos, setApellidos] = useState("")
           </button>
 
           <button
-            className="bg-black text-white px-3 py-2 rounded transition-all hover:scale-105 active:scale-95"
-            onClick={async () => {
-              if (!email || !password || !nombre || !apellidos) {
-                alert("Faltan datos")
-                return
-              }
-              const { data, error } = await
-                    supabase.auth.signUp({
-                      email,
-                      password,
-                      options: {
-                          data: {
-                            nombre,
-                            apellidos,
-                          },
-                        },
-                    })
+  className="bg-black text-white px-3 py-2 rounded transition-all hover:scale-105 active:scale-95"
+  onClick={async () => {
+    if (loading) return
+    setLoading(true)
 
-                    console.log("SIGNUP DATA:", data)
-                    console.log("SIGNUP ERROR:", error)
-                    if (error) {
-                        alert(error.message)
-                        setLoading(false)
-                          return
-                        }
-                        alert("Registro enviado correctamente")
-                        setLoading(false)
-            }}
-          >
-            Registro
-          </button>
+    if (
+      !email ||
+      !password ||
+      (authMode === "register" && (!nombre || !apellidos))
+    ) {
+      alert("Faltan datos")
+      setLoading(false)
+      return
+    }
+
+    let data, error
+
+    if (authMode === "login") {
+      const res = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
+      data = res.data
+      error = res.error
+    } else {
+      const res = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            nombre,
+            apellidos,
+          },
+        },
+      })
+      data = res.data
+      error = res.error
+    }
+
+    if (error) {
+      alert(error.message)
+      setLoading(false)
+      return
+    }
+
+    alert(authMode === "login" ? "Login correcto" : "Registro enviado correctamente")
+    setLoading(false)
+  }}
+>
+  {authMode === "login" ? "Iniciar sesión" : "Registrarse"}
+</button>
+
         </div>
       </main>
     )
@@ -722,6 +763,16 @@ const [apellidos, setApellidos] = useState("")
 
   return (
     <main className="min-h-screen bg-white p-6">
+      <button
+  onClick={async () => {
+    await supabase.auth.signOut()
+    setUser(null)
+  }}
+  className="bg-red-500 text-white px-3 py-2 rounded mb-2"
+>
+  Cerrar sesión
+</button>
+
       <div className="flex gap-2 mb-4">
   <button onClick={() => setScreen("home")} className="bg-black text-white px-3 py-2 rounded">
     Inicio
