@@ -1,4 +1,10 @@
+
 import "./globals.css"
+
+export const metadata = {
+  title: "TeDebo 💸",
+  description: "La app para compartir gastos, balances y deudas entre amigos",
+}
 
 export default function RootLayout({
   children,
@@ -7,7 +13,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es">
-      <body>{children}</body>
+      <body className="min-h-screen bg-white text-black antialiased">{children}</body>
     </html>
   )
 }

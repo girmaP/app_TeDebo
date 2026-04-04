@@ -1,6 +1,8 @@
 
 "use client"
 
+export const dynamic = "force-dynamic"
+
 import { useEffect, useMemo, useState } from "react"
 import { supabase } from "@/lib/supabase"
 
@@ -271,7 +273,7 @@ export default function Home() {
     const { data, error } = await supabase
       .from("friend_invitations")
       .select("*")
-      .eq("email", user.email)
+      .eq("email", user.email.toLowerCase())
       .in("status", ["pending", "accepted"])
       .order("created_at", { ascending: false })
 
@@ -332,25 +334,11 @@ export default function Home() {
       return
     }
 
-    const invitedAppUser = users.find(
-      (u) => u.auth_user_id && u.auth_user_id !== currentAppUser?.auth_user_id && normalizedEmail === (u.auth_user_id ? normalizedEmail : normalizedEmail)
-    )
-
     const { error } = await supabase.from("friend_invitations").insert({
       email: normalizedEmail,
       invited_by: user.id,
       status: "pending",
     })
-    await fetch("/api/send-invite", {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json",
-  },
-  body: JSON.stringify({
-    email: name,
-  }),
-})
-
 
     if (error) {
       alert("Error al enviar invitación")
@@ -358,7 +346,22 @@ export default function Home() {
       return
     }
 
-    alert("Invitación enviada. Cuando la otra persona entre con ese correo podrá aceptarla.")
+    const res = await fetch("/api/send-invite", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        email: normalizedEmail,
+      }),
+    })
+
+    if (!res.ok) {
+      alert("La invitación se guardó, pero el correo no pudo enviarse")
+    } else {
+      alert("Invitación enviada. Cuando la otra persona entre con ese correo podrá aceptarla.")
+    }
+
     setName("")
     await getSentInvitations()
   }
@@ -378,6 +381,7 @@ export default function Home() {
     }
 
     const alreadyFriend = friendships.some((f) => f.friend_id === senderAppUser.id)
+
     if (!alreadyFriend) {
       const { error: friendshipError } = await supabase.from("friendships").insert([
         {
@@ -951,9 +955,19 @@ export default function Home() {
         </div>
 
         <div className="relative z-10 w-full max-w-md rounded-3xl border border-white/10 bg-white/95 p-8 shadow-2xl backdrop-blur">
-          <h1 className="text-3xl font-black mb-2 text-center text-black">
+          <div className="mb-4 flex items-center justify-center gap-3">
+            <div className="grid h-12 w-12 place-items-center rounded-2xl bg-black text-2xl text-white shadow-lg">
+              💸
+            </div>
+            <div>
+              <h1 className="text-3xl font-black text-black">TeDebo</h1>
+              <p className="text-xs uppercase tracking-[0.25em] text-gray-500">cuentas entre colegas</p>
+            </div>
+          </div>
+
+          <h2 className="text-2xl font-bold mb-2 text-center text-black">
             {authMode === "login" ? "Iniciar sesión" : "Crear cuenta"}
-          </h1>
+          </h2>
 
           <p className="text-sm text-gray-500 text-center mb-6">
             {authMode === "login"
@@ -1073,8 +1087,24 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top,_#f8fafc,_#eef2ff_35%,_#ffffff_70%)] p-6">
-      <div className="mx-auto max-w-6xl">
+      <div className="pointer-events-none fixed inset-0 overflow-hidden">
+        <div className="absolute left-[-60px] top-24 h-56 w-56 rounded-full bg-emerald-300/20 blur-3xl animate-pulse" />
+        <div className="absolute right-[-30px] top-12 h-72 w-72 rounded-full bg-fuchsia-300/20 blur-3xl animate-pulse" />
+        <div className="absolute bottom-[-80px] left-1/3 h-72 w-72 rounded-full bg-cyan-300/20 blur-3xl animate-pulse" />
+      </div>
+
+      <div className="mx-auto max-w-6xl relative">
         <div className="mb-5 flex justify-between items-center flex-wrap gap-3">
+          <div className="flex items-center gap-3">
+            <div className="grid h-12 w-12 place-items-center rounded-2xl bg-black text-2xl text-white shadow-lg">
+              💸
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-[0.25em] text-gray-500">TeDebo</p>
+              <h1 className="text-lg font-black text-black">La app para las cuentas con amigos</h1>
+            </div>
+          </div>
+
           <div className="flex gap-2 flex-wrap">
             {(["home", "amigos", "gastos", "balances", "historial", "moroso"] as Screen[]).map((item) => (
               <button
@@ -1087,17 +1117,17 @@ export default function Home() {
                 {item === "home" ? "Inicio" : item}
               </button>
             ))}
-          </div>
 
-          <button
-            onClick={async () => {
-              await supabase.auth.signOut()
-              setUser(null)
-            }}
-            className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg shadow"
-          >
-            Cerrar sesión
-          </button>
+            <button
+              onClick={async () => {
+                await supabase.auth.signOut()
+                setUser(null)
+              }}
+              className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg shadow"
+            >
+              Cerrar sesión
+            </button>
+          </div>
         </div>
 
         {screen === "home" && (
@@ -1112,15 +1142,21 @@ export default function Home() {
                   Bienvenido al rincón de las cuentas pendientes
                 </div>
 
-                <h1 className="text-4xl font-black leading-tight sm:text-5xl">
+                <h2 className="text-4xl font-black leading-tight sm:text-5xl">
                   Si estás aquí,
                   <br />
                   <span className="text-green-300">alguien te debe pasta.</span>
-                </h1>
+                </h2>
 
                 <p className="max-w-2xl text-sm text-gray-200 sm:text-base">
                   Grupos, amigos, gastos directos, balances globales y la lista negra del mes.
                 </p>
+
+                <div className="flex flex-wrap gap-3 pt-2">
+                  <div className="rounded-2xl bg-white/10 px-4 py-2 text-sm backdrop-blur">Grupos reales</div>
+                  <div className="rounded-2xl bg-white/10 px-4 py-2 text-sm backdrop-blur">Amigos y balances</div>
+                  <div className="rounded-2xl bg-white/10 px-4 py-2 text-sm backdrop-blur">Historial y morosos</div>
+                </div>
               </div>
             </div>
 
