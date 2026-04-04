@@ -87,6 +87,73 @@ type FriendBalanceItem = {
 type SplitMode = "equal" | "custom"
 type ExpenseMode = "group" | "friend"
 type Screen = "home" | "amigos" | "gastos" | "balances" | "historial" | "moroso"
+type TrustLevel = "top" | "good" | "meh" | "dodgy" | "chaos"
+
+type TagInfo = {
+  label: string
+  level: TrustLevel
+  title: string
+  description: string
+  colorClass: string
+  borderClass: string
+}
+
+const TRUST_CONTENT: Record<
+  TrustLevel,
+  {
+    labels: string[]
+    title: string
+    description: string
+    colorClass: string
+    borderClass: string
+  }
+> = {
+  top: {
+    labels: ["Buena gente", "Bizum ninja", "De fiar", "Santo del Bizum", "No da guerra"],
+    title: "Nivel de confianza alto",
+    description:
+      "Este colega suele pagar bien y no acostumbra a hacer el payaso con las deudas. De estos sí da gusto fiarse.",
+    colorClass: "bg-emerald-100 text-emerald-800",
+    borderClass: "border-emerald-200",
+  },
+  good: {
+    labels: ["Cumple más o menos", "Ni tan mal", "Aceptable", "Va tirando", "Medio decente"],
+    title: "Nivel de confianza decente",
+    description:
+      "Normalmente responde, aunque a veces se le tiene que mirar un poco mal para que espabile.",
+    colorClass: "bg-sky-100 text-sky-800",
+    borderClass: "border-sky-200",
+  },
+  meh: {
+    labels: ["Va lento", "Hay que recordarle", "Pagador perezoso", "Necesita presión", "Se hace rogar"],
+    title: "Nivel de confianza medio",
+    description:
+      "No es de los peores, pero tampoco de los que te dan paz. Suele pagar... cuando le aprietas.",
+    colorClass: "bg-amber-100 text-amber-800",
+    borderClass: "border-amber-200",
+  },
+  dodgy: {
+    labels: ["Se hace el loco", "Bizum fantasma", "Te está toreando", "Promesas y cero pagos", "Moroso en prácticas"],
+    title: "Nivel de confianza bajo",
+    description:
+      "Aquí ya empieza el festival de excusas. Mucho 'luego te paso' y poco soltar la pasta.",
+    colorClass: "bg-orange-100 text-orange-800",
+    borderClass: "border-orange-200",
+  },
+  chaos: {
+    labels: ["Gorra legendaria", "Rata premium", "Moroso profesional", "El desaparecido", "Debe hasta el saludo"],
+    title: "Nivel de confianza nefasto",
+    description:
+      "Este cabrón ya está en nivel histórico. Si paga, se celebra como festivo nacional.",
+    colorClass: "bg-red-100 text-red-800",
+    borderClass: "border-red-200",
+  },
+}
+
+const seededIndex = (input: string, length: number) => {
+  const sum = input.split("").reduce((acc, ch) => acc + ch.charCodeAt(0), 0)
+  return sum % length
+}
 
 export default function Home() {
   const [user, setUser] = useState<any>(null)
@@ -124,17 +191,19 @@ export default function Home() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [screen, setScreen] = useState<Screen>("home")
-  const [money, setMoney] = useState(0)
-  const [coins, setCoins] = useState([
-    { id: 1, x: "left-6 top-5", icon: "💶", value: 2, anim: "animate-bounce" },
-    { id: 2, x: "right-10 top-10", icon: "🪙", value: 1, anim: "animate-pulse" },
-    { id: 3, x: "left-1/3 bottom-6", icon: "💸", value: 5, anim: "animate-bounce" },
-    { id: 4, x: "right-1/4 bottom-10", icon: "💰", value: 10, anim: "animate-pulse" },
-  ])
+  const [gameRunning, setGameRunning] = useState(false)
+  const [gameTimeLeft, setGameTimeLeft] = useState(12)
+  const [gamePressure, setGamePressure] = useState(0)
+  const [gameCash, setGameCash] = useState(0)
+  const [gameMessage, setGameMessage] = useState("")
+  const [morosoPosition, setMorosoPosition] = useState({ x: 35, y: 32 })
+  const [coinBursts, setCoinBursts] = useState<{ id: number; x: number; y: number; value: number }[]>([])
+  const [gameRound, setGameRound] = useState(0)
   const [loading, setLoading] = useState(false)
   const [nombre, setNombre] = useState("")
   const [apellidos, setApellidos] = useState("")
   const [authMode, setAuthMode] = useState<"login" | "register">("login")
+  const [tagModal, setTagModal] = useState<TagInfo | null>(null)
 
   useEffect(() => {
     const getUser = async () => {
@@ -171,6 +240,11 @@ export default function Home() {
   useEffect(() => {
     if (!currentAppUser) return
     getFriendships()
+  }, [currentAppUser])
+
+  useEffect(() => {
+    if (!currentAppUser) return
+    setPaidBy(currentAppUser.id)
   }, [currentAppUser])
 
   const ensureCurrentAppUserProfile = async () => {
@@ -473,10 +547,6 @@ export default function Home() {
     await buildGroupsWithMembers()
   }
 
-  const getMembersOfSelectedExpenseGroup = () => {
-    return groupMembers.filter((item) => item.group_id === expenseGroupId)
-  }
-
   const membersOfSelectedExpenseGroup = useMemo(() => {
     return groupMembers
       .filter((item) => item.group_id === expenseGroupId)
@@ -564,6 +634,83 @@ export default function Home() {
     setSplitMode("equal")
     setCustomSplits({})
   }
+
+  const startMorosoGame = () => {
+    setGameRunning(true)
+    setGameTimeLeft(12)
+    setGamePressure(0)
+    setGameCash(0)
+    setGameMessage("")
+    setCoinBursts([])
+    setGameRound((r) => r + 1)
+
+    moveMoroso()
+  }
+
+  const moveMoroso = () => {
+    const x = Math.random() * 70
+    const y = Math.random() * 60
+
+    setMorosoPosition({ x, y })
+  }
+
+  const hitMoroso = () => {
+    if (!gameRunning) return
+
+    const gain = Math.floor(Math.random() * 8) + 3
+    setGameCash((prev) => prev + gain)
+    setGamePressure((prev) => prev + 15)
+
+    const burst = {
+      id: Date.now(),
+      x: morosoPosition.x,
+      y: morosoPosition.y,
+      value: gain,
+    }
+
+    setCoinBursts((prev) => [...prev, burst])
+
+    setTimeout(() => {
+      setCoinBursts((prev) => prev.filter((b) => b.id !== burst.id))
+    }, 800)
+
+    moveMoroso()
+  }
+
+  useEffect(() => {
+    if (!gameRunning) return
+
+    if (gameTimeLeft <= 0) {
+      setGameRunning(false)
+
+      if (gameCash > 40) {
+        setGameMessage("💸 Le has sacado todo. Hoy paga sí o sí.")
+      } else if (gameCash > 20) {
+        setGameMessage("😤 Algo has rascado... pero sigue debiendo.")
+      } else {
+        setGameMessage("😂 Se te ha escapado. Te debe hasta el aire.")
+      }
+
+      return
+    }
+
+    const timer = setTimeout(() => {
+      setGameTimeLeft((t) => t - 1)
+    }, 1000)
+
+    return () => clearTimeout(timer)
+  }, [gameRunning, gameTimeLeft, gameCash])
+
+  useEffect(() => {
+    if (!gameRunning) return
+
+    const speed = Math.max(300, 1200 - gamePressure * 5)
+    const interval = setInterval(() => {
+      moveMoroso()
+    }, speed)
+
+    return () => clearInterval(interval)
+  }, [gameRunning, gamePressure, gameRound])
 
   const addExpense = async () => {
     if (!expenseTitle || !amount || !paidBy || !user || !currentAppUser) return
@@ -836,6 +983,39 @@ export default function Home() {
     return resultByGroup
   }, [groups, expenses, expenseSplits])
 
+  const morosoPorGrupo = useMemo(() => {
+    const result: Record<string, { userId: string; amount: number } | null> = {}
+
+    for (const group of groups) {
+      const balances = balancesByGroup[group.id] || []
+      const debtMap = new Map<string, number>()
+
+      for (const item of balances) {
+        debtMap.set(
+          item.debtorId,
+          (debtMap.get(item.debtorId) || 0) + item.amount
+        )
+      }
+
+      let maxUserId: string | null = null
+      let maxDebt = 0
+
+      debtMap.forEach((amountValue, userId) => {
+        if (amountValue > maxDebt) {
+          maxDebt = amountValue
+          maxUserId = userId
+        }
+      })
+
+      result[group.id] =
+        maxUserId && maxDebt > 0
+          ? { userId: maxUserId, amount: maxDebt }
+          : null
+    }
+
+    return result
+  }, [groups, balancesByGroup])
+
   const friendBalances = useMemo(() => {
     if (!currentAppUser) return []
 
@@ -891,36 +1071,47 @@ export default function Home() {
   }, [expenses])
 
   const moroso = useMemo(() => {
-    const debtMap = new Map<string, number>()
+    if (!currentAppUser) return null
 
-    for (const groupId in balancesByGroup) {
-      const balances = balancesByGroup[groupId]
-
-      for (const item of balances) {
-        debtMap.set(
-          item.debtorId,
-          (debtMap.get(item.debtorId) || 0) + item.amount
-        )
-      }
-    }
-
-    let maxUserId: string | null = null
+    let maxFriendId: string | null = null
     let maxDebt = 0
 
-    debtMap.forEach((amountValue, userId) => {
-      if (amountValue > maxDebt) {
-        maxDebt = amountValue
-        maxUserId = userId
+    for (const item of friendBalances) {
+      if (item.amount > maxDebt) {
+        maxDebt = item.amount
+        maxFriendId = item.friendId
       }
-    })
+    }
 
-    if (!maxUserId || maxDebt === 0) return null
+    if (!maxFriendId || maxDebt === 0) return null
 
     return {
-      userId: maxUserId,
+      friendId: maxFriendId,
       amount: maxDebt,
     }
-  }, [balancesByGroup])
+  }, [friendBalances, currentAppUser])
+
+  const getTrustInfo = (amount: number, userId: string): TagInfo => {
+    let level: TrustLevel = "top"
+
+    if (amount > 150) level = "chaos"
+    else if (amount > 80) level = "dodgy"
+    else if (amount > 30) level = "meh"
+    else if (amount > 10) level = "good"
+    else level = "top"
+
+    const content = TRUST_CONTENT[level]
+    const index = seededIndex(userId, content.labels.length)
+
+    return {
+      label: content.labels[index],
+      level,
+      title: content.title,
+      description: content.description,
+      colorClass: content.colorClass,
+      borderClass: content.borderClass,
+    }
+  }
 
   const getFriendBalanceText = (friendId: string) => {
     const item = friendBalances.find((f) => f.friendId === friendId)
@@ -1110,11 +1301,21 @@ export default function Home() {
               <button
                 key={item}
                 onClick={() => setScreen(item)}
-                className={`px-4 py-2 rounded-xl transition-all capitalize ${
+                className={`px-4 py-2 rounded-xl transition-all ${
                   screen === item ? "bg-black text-white shadow-lg" : "bg-white border border-gray-200 hover:-translate-y-0.5"
                 }`}
               >
-                {item === "home" ? "Inicio" : item}
+                {item === "home"
+                  ? "Inicio"
+                  : item === "amigos"
+                  ? "Colegas"
+                  : item === "gastos"
+                  ? "Clavadas"
+                  : item === "balances"
+                  ? "Cuentas"
+                  : item === "historial"
+                  ? "Historial"
+                  : "Moroso"}
               </button>
             ))}
 
@@ -1341,91 +1542,122 @@ export default function Home() {
             <div className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
               <div className="mb-3 flex items-center justify-between">
                 <div>
-                  <h3 className="text-lg font-bold text-black">Caza al moroso</h3>
+                  <h3 className="text-lg font-bold text-black">A por el moroso</h3>
                   <p className="text-sm text-gray-500">
-                    Dale al botón antes de que escape con tu dinero.
+                    Dale toques antes de que se vuelva a hacer el loco con tu pasta.
                   </p>
+                </div>
+
+                {!gameRunning && (
+                  <button
+                    onClick={startMorosoGame}
+                    className="rounded-xl bg-black px-4 py-3 text-white transition-all hover:scale-105 active:scale-95"
+                  >
+                    Empezar
+                  </button>
+                )}
+              </div>
+
+              <div className="mb-4 grid gap-3 sm:grid-cols-3">
+                <div className="rounded-xl bg-gray-100 p-3">
+                  <p className="text-xs uppercase tracking-wide text-gray-500">Tiempo</p>
+                  <p className="text-xl font-bold text-black">{gameTimeLeft}s</p>
+                </div>
+                <div className="rounded-xl bg-gray-100 p-3">
+                  <p className="text-xs uppercase tracking-wide text-gray-500">Pasta recuperada</p>
+                  <p className="text-xl font-bold text-black">{gameCash}€</p>
+                </div>
+                <div className="rounded-xl bg-gray-100 p-3">
+                  <p className="text-xs uppercase tracking-wide text-gray-500">Barra de presión</p>
+                  <p className="text-xl font-bold text-black">{gamePressure}%</p>
                 </div>
               </div>
 
-              <div className="relative h-64 overflow-hidden rounded-2xl bg-gradient-to-br from-green-50 via-yellow-50 to-red-50">
+              <div className="mb-4 h-4 w-full overflow-hidden rounded-full bg-gray-200">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-emerald-500 via-yellow-400 to-red-500 transition-all duration-200"
+                  style={{ width: `${Math.min(gamePressure, 100)}%` }}
+                />
+              </div>
+
+              <div className="relative h-72 overflow-hidden rounded-2xl bg-gradient-to-br from-green-50 via-yellow-50 to-red-50">
                 <div className="absolute inset-0 opacity-60">
                   <div className="absolute left-10 top-6 h-24 w-24 rounded-full bg-green-300/30 blur-2xl animate-pulse" />
                   <div className="absolute right-10 bottom-6 h-24 w-24 rounded-full bg-red-300/30 blur-2xl animate-pulse" />
                 </div>
 
-                <button
-                  onMouseEnter={(e) => {
-                    const parent = e.currentTarget.parentElement
-                    if (!parent) return
-
-                    const maxX = parent.clientWidth - e.currentTarget.clientWidth
-                    const maxY = parent.clientHeight - e.currentTarget.clientHeight
-
-                    const randomX = Math.floor(Math.random() * maxX)
-                    const randomY = Math.floor(Math.random() * maxY)
-
-                    e.currentTarget.style.left = `${randomX}px`
-                    e.currentTarget.style.top = `${randomY}px`
-                  }}
-                  onClick={() => alert("Lo pillaste. Hoy sí te pagan.")}
-                  className="absolute left-6 top-6 rounded-full bg-black px-4 py-2 text-white transition-all duration-300 animate-bounce hover:scale-110"
-                >
-                  💸 Moroso
-                </button>
-
-                {coins.map((coin) => (
-                  <div
-                    key={coin.id}
-                    onClick={() => {
-                      setMoney((m) => m + coin.value)
-
-                      setCoins((prev) => prev.filter((c) => c.id !== coin.id))
-
-                      setTimeout(() => {
-                        const positions = [
-                          "left-6 top-5",
-                          "right-10 top-10",
-                          "left-1/3 bottom-6",
-                          "right-1/4 bottom-10",
-                          "left-1/2 top-8",
-                          "right-6 bottom-6",
-                          "left-10 bottom-10",
-                        ]
-
-                        const anims = ["animate-bounce", "animate-pulse"]
-
-                        const randomPos =
-                          positions[Math.floor(Math.random() * positions.length)]
-                        const randomAnim =
-                          anims[Math.floor(Math.random() * anims.length)]
-
-                        setCoins((prev) => [
-                          ...prev,
-                          {
-                            ...coin,
-                            x: randomPos,
-                            anim: randomAnim,
-                          },
-                        ])
-                      }, 1200)
-                    }}
-                    className={`absolute ${coin.x} cursor-pointer text-2xl ${coin.anim} hover:scale-125`}
-                  >
-                    {coin.icon}
+                {!gameRunning && !gameMessage && (
+                  <div className="absolute inset-0 grid place-items-center p-6 text-center">
+                    <div>
+                      <p className="text-5xl">😈</p>
+                      <p className="mt-3 text-lg font-bold text-black">Pulsa empezar y mete presión</p>
+                      <p className="mt-2 text-sm text-gray-600">
+                        Cuanto más le toques, más pasta rascas y más nervioso se pone.
+                      </p>
+                    </div>
                   </div>
-                ))}
+                )}
 
-                <div className="absolute bottom-4 left-4 rounded-xl bg-white/80 px-3 py-2 text-sm text-black shadow">
-                  <div className="mb-2 text-sm font-semibold text-black">
-                    💰 Dinero recuperado: {money}€
+                {gameRunning && (
+                  <>
+                    <button
+                      onClick={hitMoroso}
+                      className="absolute z-20 flex h-20 w-20 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-black text-3xl text-white shadow-xl transition-transform active:scale-90"
+                      style={{
+                        left: `${morosoPosition.x}%`,
+                        top: `${morosoPosition.y}%`,
+                      }}
+                    >
+                      💸
+                    </button>
+
+                    {coinBursts.map((coin) => (
+                      <div
+                        key={coin.id}
+                        className="pointer-events-none absolute z-30 -translate-x-1/2 -translate-y-1/2 text-lg font-black text-emerald-600"
+                        style={{
+                          left: `${coin.x}%`,
+                          top: `${coin.y - 8}%`,
+                        }}
+                      >
+                        +{coin.value}€
+                      </div>
+                    ))}
+
+                    <div className="absolute bottom-4 left-4 rounded-xl bg-white/80 px-3 py-2 text-sm text-black shadow">
+                      Se está haciendo el loco... tú sigue apretando.
+                    </div>
+
+                    <div className="absolute right-4 top-4 rounded-xl bg-white/80 px-3 py-2 text-sm text-black shadow">
+                      Tócalo antes de que se escape
+                    </div>
+                  </>
+                )}
+
+                {!gameRunning && gameMessage && (
+                  <div className="absolute inset-0 grid place-items-center p-6 text-center">
+                    <div className="max-w-md rounded-3xl bg-white/90 p-6 shadow-xl">
+                      <p className="text-5xl">{gameCash > 40 ? "🔥" : gameCash > 20 ? "😤" : "😂"}</p>
+                      <p className="mt-4 text-xl font-black text-black">{gameMessage}</p>
+                      <p className="mt-3 text-sm text-gray-600">
+                        Dinero recuperado en el juego: {gameCash}€
+                      </p>
+
+                      {moroso && (
+                        <p className="mt-2 text-sm font-semibold text-black">
+                          Pero recuerda: {getUserName(moroso.friendId)} aún te debe {moroso.amount.toFixed(2)}€
+                        </p>
+                      )}
+
+                      <button
+                        onClick={startMorosoGame}
+                        className="mt-5 rounded-xl bg-black px-4 py-3 text-white transition-all hover:scale-105 active:scale-95"
+                      >
+                        Volver a meter presión
+                      </button>
+                    </div>
                   </div>
-                  Excusa típica: “te lo paso luego”
-                </div>
-
-                <div className="absolute right-4 top-4 rounded-xl bg-white/80 px-3 py-2 text-sm text-black shadow">
-                  Deuda detectada
-                </div>
+                )}
               </div>
             </div>
           </div>
@@ -1434,39 +1666,55 @@ export default function Home() {
         {screen === "amigos" && (
           <div className="mx-auto flex max-w-3xl animate-[fadeIn_.35s_ease] flex-col gap-6">
             <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
-              <h2 className="text-2xl font-semibold text-black">Amigos</h2>
+              <h2 className="text-2xl font-semibold text-black">Colegas</h2>
               <p className="mt-1 text-sm text-gray-500">
-                Aquí ves el balance global contigo y cada amigo, sumando gastos de grupos y gastos directos.
+                Aquí ves el balance global contigo y cada colega, con su nivel de confianza incluido.
               </p>
 
               <div className="mt-4 space-y-3">
                 {friendList.length === 0 ? (
                   <p className="text-gray-500">
-                    Todavía no tienes balances con amigos.
+                    Todavía no tienes balances con colegas.
                   </p>
                 ) : (
-                  friendList.map((friend) => (
-                    <div
-                      key={friend.id}
-                      className="rounded-xl border border-gray-200 p-4"
-                    >
-                      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                        <div>
-                          <p className="text-lg font-semibold text-black">{friend.name}</p>
-                          <p className="text-sm text-gray-600">
-                            {getFriendBalanceText(friend.id)}
-                          </p>
-                        </div>
+                  friendList.map((friend) => {
+                    const balance =
+                      friendBalances.find((item) => item.friendId === friend.id)?.amount || 0
 
-                        <button
-                          onClick={() => openFriendExpense(friend.id)}
-                          className="rounded-xl bg-black px-4 py-3 text-white transition-all hover:scale-105 active:scale-95"
-                        >
-                          Añadir gasto directo
-                        </button>
+                    const trustInfo = getTrustInfo(balance > 0 ? balance : 0, friend.id)
+
+                    return (
+                      <div
+                        key={friend.id}
+                        className={`rounded-xl border p-4 ${trustInfo.borderClass}`}
+                      >
+                        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                          <div>
+                            <p className="text-lg font-semibold text-black">{friend.name}</p>
+                            <p className="text-sm text-gray-600">
+                              {getFriendBalanceText(friend.id)}
+                            </p>
+                          </div>
+
+                          <div className="flex flex-wrap items-center gap-2">
+                            <button
+                              onClick={() => setTagModal(trustInfo)}
+                              className={`rounded-full px-3 py-2 text-sm font-semibold ${trustInfo.colorClass}`}
+                            >
+                              {trustInfo.label}
+                            </button>
+
+                            <button
+                              onClick={() => openFriendExpense(friend.id)}
+                              className="rounded-xl bg-black px-4 py-3 text-white transition-all hover:scale-105 active:scale-95"
+                            >
+                              Añadir gasto directo
+                            </button>
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  ))
+                    )
+                  })
                 )}
               </div>
             </div>
@@ -1686,6 +1934,7 @@ export default function Home() {
                 ) : (
                   groups.map((group) => {
                     const balances = balancesByGroup[group.id] || []
+                    const morosoGrupo = morosoPorGrupo[group.id]
 
                     return (
                       <div key={group.id} className="rounded border p-3">
@@ -1693,7 +1942,14 @@ export default function Home() {
                           onClick={() => toggleBalanceGroup(group.id)}
                           className="flex w-full items-center justify-between text-left"
                         >
-                          <h3 className="font-bold text-black">{group.name}</h3>
+                          <div>
+                            <h3 className="font-bold text-black">{group.name}</h3>
+                            {morosoGrupo && (
+                              <p className="mt-1 text-sm text-red-600">
+                                Moroso del grupo: {getUserName(morosoGrupo.userId)} · {morosoGrupo.amount.toFixed(2)}€
+                              </p>
+                            )}
+                          </div>
                           <span className="text-black">
                             {openBalanceGroups[group.id] ? "▲" : "▼"}
                           </span>
@@ -1872,16 +2128,59 @@ export default function Home() {
               <h2 className="mb-3 text-xl font-semibold text-black">Moroso del mes</h2>
 
               {!moroso ? (
-                <p className="text-green-600">No hay deudas</p>
+                <p className="text-green-600">No hay morosos. Hoy la peña se ha portado.</p>
               ) : (
-                <p className="text-black">
-                  {getUserName(moroso.userId)} debe {moroso.amount.toFixed(2)}€
-                </p>
+                <div className="mt-4 flex flex-col items-center gap-4 rounded-2xl bg-gradient-to-br from-red-500 to-black p-6 text-white shadow-xl animate-pulse">
+                  <div className="text-5xl">💀</div>
+
+                  <p className="text-2xl font-bold">
+                    {getUserName(moroso.friendId)}
+                  </p>
+
+                  <p className="text-lg">
+                    te debe {moroso.amount.toFixed(2)}€
+                  </p>
+
+                  <p className="text-sm opacity-80">
+                    Nivel de morosidad: extremo
+                  </p>
+                </div>
               )}
             </div>
           </div>
         )}
       </div>
+
+      {tagModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className={`inline-flex rounded-full px-3 py-2 text-sm font-semibold ${tagModal.colorClass}`}>
+                  {tagModal.label}
+                </p>
+                <h3 className="mt-4 text-2xl font-black text-black">{tagModal.title}</h3>
+              </div>
+
+              <button
+                onClick={() => setTagModal(null)}
+                className="rounded-full bg-gray-100 px-3 py-2 text-sm font-semibold text-black"
+              >
+                ✕
+              </button>
+            </div>
+
+            <p className="mt-4 text-sm leading-6 text-gray-600">{tagModal.description}</p>
+
+            <button
+              onClick={() => setTagModal(null)}
+              className="mt-6 w-full rounded-xl bg-black px-4 py-3 text-white"
+            >
+              Vale, ya sé de qué pie cojea
+            </button>
+          </div>
+        </div>
+      )}
     </main>
   )
 }
