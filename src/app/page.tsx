@@ -1312,54 +1312,8 @@ const menuItems: Screen[] = ["amigos", "gastos", "balances", "historial", "moros
           <div className="flex gap-2 flex-wrap">
           <div className="flex gap-2 items-center">
             <div className="flex gap-2 items-center flex-wrap">
-  <button
-    onClick={() => setScreen("home")}
-    className={`px-4 py-2 rounded-xl transition-all ${
-      screen === "home"
-        ? "bg-black text-white shadow-lg"
-        : "bg-white border border-gray-200"
-    }`}
-  >
-    Inicio
-  </button>
 
-  <div className="relative">
-    <button
-      onClick={() => setMenuOpen(!menuOpen)}
-      className="px-4 py-2 rounded-xl bg-white border border-gray-200 hover:-translate-y-0.5 transition-all"
-    >
-      ☰ Menú
-    </button>
-
-    {menuOpen && (
-      <div className="absolute right-0 mt-2 w-44 bg-white border border-gray-200 rounded-xl shadow-lg z-50 overflow-hidden">
-        {menuItems.map((item) => (
-          <button
-            key={item}
-            onClick={() => {
-              setScreen(item)
-              setMenuOpen(false)
-            }}
-            className={`block w-full text-left px-4 py-3 transition-all hover:bg-gray-100 ${
-              screen === item ? "bg-gray-100 font-semibold" : ""
-            }`}
-          >
-            {item === "amigos"
-              ? "Colegas"
-              : item === "gastos"
-              ? "Clavadas"
-              : item === "balances"
-              ? "Cuentas"
-              : item === "historial"
-              ? "Historial"
-              : "Moroso"}
-          </button>
-        ))}
-      </div>
-    )}
-  </div>
 </div>
-
 
   {/* Botón Inicio */}
   <button
@@ -1422,7 +1376,8 @@ const menuItems: Screen[] = ["amigos", "gastos", "balances", "historial", "moros
               <div className="absolute top-10 right-6 h-20 w-20 rounded-full bg-green-400/20 blur-2xl" />
               <div className="absolute bottom-0 left-1/3 h-24 w-24 rounded-full bg-red-400/20 blur-2xl" />
 
-              <div className="relative z-10 flex flex-col gap-4">
+              <div className="relative z-10 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+                <div className="max-w-2xl flex-1 flex flex-col gap-4">
                 <div className="inline-flex w-fit items-center rounded-full border border-white/20 bg-white/10 px-3 py-1 text-sm backdrop-blur">
                   Bienvenido al rincón de las cuentas pendientes
                 </div>
@@ -1448,6 +1403,8 @@ const menuItems: Screen[] = ["amigos", "gastos", "balances", "historial", "moros
     Historial y morosos
   </div>
 </div>
+</div>
+
 
 </div>
 </div>
