@@ -1450,6 +1450,30 @@ const menuItems: Screen[] = ["amigos", "gastos", "balances", "historial", "moros
                   style={{ width: `${Math.min(gamePressure, 100)}%` }}
                 />
               </div>
+              <div className="flex flex-1 items-center justify-center">
+  <div className="relative h-[280px] w-full max-w-[320px]">
+    <div className="absolute inset-0 rounded-[32px] bg-white/10 blur-2xl" />
+
+    <div className="absolute left-1/2 top-1/2 grid h-56 w-56 -translate-x-1/2 -translate-y-1/2 grid-cols-3 gap-2 rounded-[28px] border border-white/15 bg-black/20 p-4 shadow-2xl backdrop-blur-md animate-[floatCube_6s_ease-in-out_infinite]">
+      {[
+        "😏", "💸", "🕶️",
+        "🪙", "🤑", "💰",
+        "😈", "🏦", "🫰",
+      ].map((icon, index) => (
+        <div
+          key={index}
+          className="flex items-center justify-center rounded-xl border border-white/10 bg-white/10 text-2xl shadow-inner backdrop-blur-sm"
+        >
+          {icon}
+        </div>
+      ))}
+    </div>
+
+    <div className="absolute -left-2 top-6 h-16 w-16 rounded-full bg-emerald-300/20 blur-2xl animate-pulse" />
+    <div className="absolute -right-2 bottom-6 h-20 w-20 rounded-full bg-fuchsia-300/20 blur-2xl animate-pulse" />
+  </div>
+</div>
+
 
               <div className="relative h-72 overflow-hidden rounded-2xl bg-gradient-to-br from-green-50 via-yellow-50 to-red-50">
                 <div className="absolute inset-0 opacity-60">
