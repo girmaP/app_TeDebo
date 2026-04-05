@@ -1397,8 +1397,8 @@ const menuItems: Screen[] = ["amigos", "gastos", "balances", "historial", "moros
               <div className="absolute top-10 right-6 h-20 w-20 rounded-full bg-green-400/20 blur-2xl" />
               <div className="absolute bottom-0 left-1/3 h-24 w-24 rounded-full bg-red-400/20 blur-2xl" />
 
-              <div className="relative z-10 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-                <div className="max-w-2xl flex-1 flex flex-col gap-4">
+              <div className="relative z-10 grid gap-8 lg:grid-cols-2 items-center">
+                <div className="relative z-10 max-w-2xl flex flex-col gap-4">
                 <div className="inline-flex w-fit items-center rounded-full border border-white/20 bg-white/10 px-3 py-1 text-sm backdrop-blur">
                   Bienvenido al rincón de las cuentas pendientes
                 </div>
