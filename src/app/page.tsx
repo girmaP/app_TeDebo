@@ -1551,8 +1551,10 @@ const menuItems: Screen[] = ["amigos", "gastos", "balances", "historial", "moros
                     </div>
                   </>
                 )}
+<div className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
+</div>
 
-                <div className="rounded-3xl border border-emerald-200 bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-500 p-6 text-white shadow-2xl">
+<div className="rounded-3xl border border-emerald-200 bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-500 p-6 text-white shadow-2xl">
   <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
     <div className="max-w-2xl">
       <div className="inline-flex w-fit items-center rounded-full bg-white/15 px-3 py-1 text-sm font-semibold backdrop-blur">
