@@ -191,6 +191,9 @@ export default function Home() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [screen, setScreen] = useState<Screen>("home")
+  const [menuOpen, setMenuOpen] = useState(false)
+const menuItems: Screen[] = ["amigos", "gastos", "balances", "historial", "moroso"]
+
   const [gameRunning, setGameRunning] = useState(false)
   const [gameTimeLeft, setGameTimeLeft] = useState(12)
   const [gamePressure, setGamePressure] = useState(0)
@@ -1307,27 +1310,97 @@ export default function Home() {
           </div>
 
           <div className="flex gap-2 flex-wrap">
-            {(["home", "amigos", "gastos", "balances", "historial", "moroso"] as Screen[]).map((item) => (
-              <button
-                key={item}
-                onClick={() => setScreen(item)}
-                className={`px-4 py-2 rounded-xl transition-all ${
-                  screen === item ? "bg-black text-white shadow-lg" : "bg-white border border-gray-200 hover:-translate-y-0.5"
-                }`}
-              >
-                {item === "home"
-                  ? "Inicio"
-                  : item === "amigos"
-                  ? "Colegas"
-                  : item === "gastos"
-                  ? "Clavadas"
-                  : item === "balances"
-                  ? "Cuentas"
-                  : item === "historial"
-                  ? "Historial"
-                  : "Moroso"}
-              </button>
-            ))}
+          <div className="flex gap-2 items-center">
+            <div className="flex gap-2 items-center flex-wrap">
+  <button
+    onClick={() => setScreen("home")}
+    className={`px-4 py-2 rounded-xl transition-all ${
+      screen === "home"
+        ? "bg-black text-white shadow-lg"
+        : "bg-white border border-gray-200"
+    }`}
+  >
+    Inicio
+  </button>
+
+  <div className="relative">
+    <button
+      onClick={() => setMenuOpen(!menuOpen)}
+      className="px-4 py-2 rounded-xl bg-white border border-gray-200 hover:-translate-y-0.5 transition-all"
+    >
+      ☰ Menú
+    </button>
+
+    {menuOpen && (
+      <div className="absolute right-0 mt-2 w-44 bg-white border border-gray-200 rounded-xl shadow-lg z-50 overflow-hidden">
+        {menuItems.map((item) => (
+          <button
+            key={item}
+            onClick={() => {
+              setScreen(item)
+              setMenuOpen(false)
+            }}
+            className={`block w-full text-left px-4 py-3 transition-all hover:bg-gray-100 ${
+              screen === item ? "bg-gray-100 font-semibold" : ""
+            }`}
+          >
+            {item === "amigos"
+              ? "Colegas"
+              : item === "gastos"
+              ? "Clavadas"
+              : item === "balances"
+              ? "Cuentas"
+              : item === "historial"
+              ? "Historial"
+              : "Moroso"}
+          </button>
+        ))}
+      </div>
+    )}
+  </div>
+</div>
+
+  {/* Botón Inicio */}
+  <button
+    onClick={() => setScreen("home")}
+    className={`px-4 py-2 rounded-xl ${
+      screen === "home"
+        ? "bg-black text-white"
+        : "bg-white border border-gray-200"
+    }`}
+  >
+    Inicio
+  </button>
+
+  {/* Botón menú */}
+  <div className="relative">
+    <button
+      onClick={() => setMenuOpen(!menuOpen)}
+      className="px-4 py-2 rounded-xl bg-white border border-gray-200"
+    >
+      ☰
+    </button>
+
+    {menuOpen && (
+      <div className="absolute right-0 mt-2 w-40 bg-white border rounded-xl shadow-lg z-50">
+        {menuItems.map((item) => (
+          <button
+            key={item}
+            onClick={() => {
+              setScreen(item)
+              setMenuOpen(false)
+            }}
+            className="block w-full text-left px-4 py-2 hover:bg-gray-100 capitalize"
+          >
+            {item}
+          </button>
+        ))}
+      </div>
+    )}
+  </div>
+
+</div>
+
 
             <button
               onClick={async () => {
