@@ -1434,194 +1434,24 @@ const menuItems: Screen[] = ["amigos", "gastos", "balances", "historial", "moros
                 </h2>
 
                 <p className="max-w-2xl text-sm text-gray-200 sm:text-base">
-                  Grupos, amigos, gastos directos, balances globales y la lista negra del mes.
-                </p>
+  Grupos, amigos, gastos directos, balances globales y la lista negra del mes.
+</p>
 
-                <div className="flex flex-wrap gap-3 pt-2">
-                  <div className="rounded-2xl bg-white/10 px-4 py-2 text-sm backdrop-blur">Grupos reales</div>
-                  <div className="rounded-2xl bg-white/10 px-4 py-2 text-sm backdrop-blur">Amigos y balances</div>
-                  <div className="rounded-2xl bg-white/10 px-4 py-2 text-sm backdrop-blur">Historial y morosos</div>
-                </div>
-              </div>
-            </div>
+<div className="flex flex-wrap gap-3 pt-2">
+  <div className="rounded-2xl bg-white/10 px-4 py-2 text-sm backdrop-blur">
+    Grupos reales
+  </div>
+  <div className="rounded-2xl bg-white/10 px-4 py-2 text-sm backdrop-blur">
+    Amigos y balances
+  </div>
+  <div className="rounded-2xl bg-white/10 px-4 py-2 text-sm backdrop-blur">
+    Historial y morosos
+  </div>
+</div>
 
-            <div className="grid gap-6 lg:grid-cols-2">
-              <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
-                <h2 className="text-xl font-semibold text-black">Crear grupo</h2>
-                <input
-                  placeholder="Nombre del grupo"
-                  value={groupName}
-                  onChange={(e) => setGroupName(e.target.value)}
-                  className="mt-3 w-full rounded-lg border border-gray-300 p-3 text-black outline-none transition focus:border-black focus:ring-1 focus:ring-black"
-                />
-                <button
-                  onClick={addGroup}
-                  className="mt-3 rounded-xl bg-black px-4 py-3 text-white transition-all hover:scale-105 active:scale-95"
-                >
-                  + Crear grupo
-                </button>
-              </div>
+</div>
+</div>
 
-              <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
-                <h2 className="text-xl font-semibold text-black">Invitar a un amigo</h2>
-                <p className="mt-1 text-sm text-gray-500">
-                  Escribe su correo y podrá aceptar la invitación cuando entre con esa cuenta.
-                </p>
-                <input
-                  placeholder="Correo de tu amigo"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="mt-3 w-full rounded-lg border border-gray-300 p-3 text-black outline-none transition focus:border-black focus:ring-1 focus:ring-black"
-                />
-                <button
-                  onClick={addUser}
-                  className="mt-3 rounded-xl bg-gray-900 px-4 py-3 text-white transition-all hover:scale-105 active:scale-95"
-                >
-                  + Enviar invitación
-                </button>
-              </div>
-            </div>
-
-            <div className="grid gap-6 lg:grid-cols-2">
-              <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
-                <h2 className="text-xl font-semibold text-black">Añadir amigo a grupo</h2>
-
-                <select
-                  value={selectedUserId}
-                  onChange={(e) => setSelectedUserId(e.target.value)}
-                  className="mt-3 w-full rounded-lg border border-gray-300 p-3 text-black outline-none transition focus:border-black focus:ring-1 focus:ring-black"
-                >
-                  <option value="">Amigo</option>
-                  {friendList.map((u) => (
-                    <option key={u.id} value={u.id}>
-                      {u.name}
-                    </option>
-                  ))}
-                </select>
-
-                <select
-                  value={selectedGroupId}
-                  onChange={(e) => setSelectedGroupId(e.target.value)}
-                  className="mt-3 w-full rounded-lg border border-gray-300 p-3 text-black outline-none transition focus:border-black focus:ring-1 focus:ring-black"
-                >
-                  <option value="">Grupo</option>
-                  {groups.map((g) => (
-                    <option key={g.id} value={g.id}>
-                      {g.name}
-                    </option>
-                  ))}
-                </select>
-
-                <button
-                  onClick={addPersonToGroup}
-                  className="mt-3 rounded-xl bg-black px-4 py-3 text-white transition-all hover:scale-105 active:scale-95"
-                >
-                  Añadir al grupo
-                </button>
-              </div>
-
-              <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
-                <h2 className="text-xl font-semibold text-black">Invitaciones</h2>
-
-                <div className="mt-4">
-                  <h3 className="font-semibold text-black mb-2">Recibidas</h3>
-                  {receivedInvitations.length === 0 ? (
-                    <p className="text-sm text-gray-500">No tienes invitaciones recibidas</p>
-                  ) : (
-                    <div className="space-y-2">
-                      {receivedInvitations.map((inv) => (
-                        <div key={inv.id} className="rounded-lg bg-gray-100 p-3">
-                          <div className="flex items-center justify-between gap-3">
-                            <span className="text-black">
-                              {inv.email} ({inv.status})
-                            </span>
-
-                            {inv.status === "pending" && (
-                              <button
-                                onClick={() => acceptInvitation(inv)}
-                                className="rounded-lg bg-black px-3 py-2 text-white"
-                              >
-                                Aceptar
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                <div className="mt-5">
-                  <h3 className="font-semibold text-black mb-2">Enviadas</h3>
-                  {sentInvitations.length === 0 ? (
-                    <p className="text-sm text-gray-500">No has enviado invitaciones todavía</p>
-                  ) : (
-                    <div className="space-y-2">
-                      {sentInvitations.map((inv) => (
-                        <div key={inv.id} className="rounded-lg bg-gray-100 p-3 text-black">
-                          {inv.email} ({inv.status})
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <div className="grid gap-6 lg:grid-cols-2">
-              <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
-                <h2 className="text-xl font-semibold text-black">Tus grupos</h2>
-                <div className="mt-4 space-y-2">
-                  {groups.length === 0 ? (
-                    <p className="text-gray-500">Todavía no hay grupos</p>
-                  ) : (
-                    groups.map((g) => (
-                      <button
-                        key={g.id}
-                        onClick={() => openGroupFromHome(g.id)}
-                        className="w-full rounded-lg bg-gray-100 p-4 text-left transition hover:bg-gray-200"
-                      >
-                        {g.name}
-                      </button>
-                    ))
-                  )}
-                </div>
-              </div>
-
-              <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
-                <h2 className="text-xl font-semibold text-black">Tus amigos</h2>
-                <div className="mt-4 space-y-2">
-                  {friendList.length === 0 ? (
-                    <p className="text-gray-500">
-                      Aquí aparecerán tus amigos cuando acepten invitaciones o compartáis gastos.
-                    </p>
-                  ) : (
-                    friendList.map((friend) => (
-                      <div
-                        key={friend.id}
-                        className="rounded-lg border border-gray-200 p-3"
-                      >
-                        <div className="flex items-center justify-between gap-3">
-                          <div>
-                            <p className="font-semibold text-black">{friend.name}</p>
-                            <p className="text-sm text-gray-500">
-                              {getFriendBalanceText(friend.id)}
-                            </p>
-                          </div>
-
-                          <button
-                            onClick={() => openFriendExpense(friend.id)}
-                            className="rounded-lg bg-black px-3 py-2 text-white transition-all hover:scale-105 active:scale-95"
-                          >
-                            Gasto directo
-                          </button>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-            </div>
 
             <div className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
               <div className="mb-3 flex items-center justify-between">
