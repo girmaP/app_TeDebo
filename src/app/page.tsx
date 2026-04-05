@@ -1448,98 +1448,6 @@ const menuItems: Screen[] = ["amigos", "gastos", "balances", "historial", "moros
 
 </div>
 </div>
-
-
-            <div className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
-              <div className="mb-3 flex items-center justify-between">
-                <div>
-                  <h3 className="text-lg font-bold text-black">A por el moroso</h3>
-                  <p className="text-sm text-gray-500">
-                    Dale toques antes de que se vuelva a hacer el loco con tu pasta.
-                  </p>
-                </div>
-
-                {!gameRunning && (
-                  <button
-                    onClick={startMorosoGame}
-                    className="rounded-xl bg-black px-4 py-3 text-white transition-all hover:scale-105 active:scale-95"
-                  >
-                    Empezar
-                  </button>
-                )}
-              </div>
-
-              <div className="mb-4 grid gap-3 sm:grid-cols-3">
-                <div className="rounded-xl bg-gray-100 p-3">
-                  <p className="text-xs uppercase tracking-wide text-gray-500">Tiempo</p>
-                  <p className="text-xl font-bold text-black">{gameTimeLeft}s</p>
-                </div>
-                <div className="rounded-xl bg-gray-100 p-3">
-                  <p className="text-xs uppercase tracking-wide text-gray-500">Pasta recuperada</p>
-                  <p className="text-xl font-bold text-black">{gameCash}€</p>
-                </div>
-                <div className="rounded-xl bg-gray-100 p-3">
-                  <p className="text-xs uppercase tracking-wide text-gray-500">Barra de presión</p>
-                  <p className="text-xl font-bold text-black">{gamePressure}%</p>
-                </div>
-              </div>
-
-              <div className="mb-4 h-4 w-full overflow-hidden rounded-full bg-gray-200">
-                <div
-                  className="h-full rounded-full bg-gradient-to-r from-emerald-500 via-yellow-400 to-red-500 transition-all duration-200"
-                  style={{ width: `${Math.min(gamePressure, 100)}%` }}
-                />
-              </div>
-              
-
-    <div className="absolute -left-2 top-6 h-16 w-16 rounded-full bg-emerald-300/20 blur-2xl animate-pulse" />
-    <div className="absolute -right-2 bottom-6 h-20 w-20 rounded-full bg-fuchsia-300/20 blur-2xl animate-pulse" />
-  </div>
-</div>
-<div className="rounded-3xl border border-emerald-200 bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-500 p-6 text-white shadow-2xl">
-  <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-    <div className="max-w-2xl">
-      <div className="inline-flex w-fit items-center rounded-full bg-white/15 px-3 py-1 text-sm font-semibold backdrop-blur">
-        📩 Trae a tu gente
-      </div>
-
-      <h3 className="mt-3 text-2xl font-black sm:text-3xl">
-        Invita a tus colegas y empieza a repartir clavadas como dios manda
-      </h3>
-
-      <p className="mt-2 text-sm text-white/90 sm:text-base">
-        Mándales la invitación y que entren con el mismo correo al que les llegó. Si no, luego vienen los lloros.
-      </p>
-    </div>
-
-    <div className="w-full max-w-xl rounded-2xl bg-white/10 p-4 backdrop-blur-md">
-      <label className="mb-2 block text-sm font-semibold text-white">
-        Correo de tu colega
-      </label>
-
-      <div className="flex flex-col gap-3 sm:flex-row">
-        <input
-          placeholder="colega@correo.com"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          className="w-full rounded-xl border border-white/20 bg-white/90 p-3 text-black outline-none"
-        />
-
-        <button
-          onClick={addUser}
-          className="rounded-xl bg-black px-5 py-3 font-semibold text-white transition-all hover:scale-105 active:scale-95"
-        >
-          Enviar invitación
-        </button>
-      </div>
-
-      <p className="mt-3 text-xs text-white/80">
-        Importante: tu colega debe registrarse o iniciar sesión con ese mismo correo.
-      </p>
-    </div>
-  </div>
-</div>
-
               <div className="relative h-72 overflow-hidden rounded-2xl bg-gradient-to-br from-green-50 via-yellow-50 to-red-50">
                 <div className="absolute inset-0 opacity-60">
                   <div className="absolute left-10 top-6 h-24 w-24 rounded-full bg-green-300/30 blur-2xl animate-pulse" />
@@ -1623,8 +1531,99 @@ const menuItems: Screen[] = ["amigos", "gastos", "balances", "historial", "moros
             </div>
           </div>
           </div>
-        )}
+
+
+        <div className="rounded-3xl border border-emerald-200 bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-500 p-6 text-white shadow-2xl">
+  <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+    <div className="max-w-2xl">
+      <div className="inline-flex w-fit items-center rounded-full bg-white/15 px-3 py-1 text-sm font-semibold backdrop-blur">
+        📩 Trae a tu gente
+      </div>
+
+      <h3 className="mt-3 text-2xl font-black sm:text-3xl">
+        Invita a tus colegas y empieza a repartir clavadas como dios manda
+      </h3>
+
+      <p className="mt-2 text-sm text-white/90 sm:text-base">
+        Mándales la invitación y que entren con el mismo correo al que les llegó. Si no, luego vienen los lloros.
+      </p>
+    </div>
+
+    <div className="w-full max-w-xl rounded-2xl bg-white/10 p-4 backdrop-blur-md">
+      <label className="mb-2 block text-sm font-semibold text-white">
+        Correo de tu colega
+      </label>
+
+      <div className="flex flex-col gap-3 sm:flex-row">
+        <input
+          placeholder="colega@correo.com"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          className="w-full rounded-xl border border-white/20 bg-white/90 p-3 text-black outline-none"
+        />
+
+        <button
+          onClick={addUser}
+          className="rounded-xl bg-black px-5 py-3 font-semibold text-white transition-all hover:scale-105 active:scale-95"
+        >
+          Enviar invitación
+        </button>
+      </div>
+
+      <p className="mt-3 text-xs text-white/80">
+        Importante: tu colega debe registrarse o iniciar sesión con ese mismo correo.
+      </p>
+    </div>
+  </div>
+</div>
         
+<div className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
+              <div className="mb-3 flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-bold text-black">A por el moroso</h3>
+                  <p className="text-sm text-gray-500">
+                    Dale toques antes de que se vuelva a hacer el loco con tu pasta.
+                  </p>
+                </div>
+
+                {!gameRunning && (
+                  <button
+                    onClick={startMorosoGame}
+                    className="rounded-xl bg-black px-4 py-3 text-white transition-all hover:scale-105 active:scale-95"
+                  >
+                    Empezar
+                  </button>
+                )}
+              </div>
+
+              <div className="mb-4 grid gap-3 sm:grid-cols-3">
+                <div className="rounded-xl bg-gray-100 p-3">
+                  <p className="text-xs uppercase tracking-wide text-gray-500">Tiempo</p>
+                  <p className="text-xl font-bold text-black">{gameTimeLeft}s</p>
+                </div>
+                <div className="rounded-xl bg-gray-100 p-3">
+                  <p className="text-xs uppercase tracking-wide text-gray-500">Pasta recuperada</p>
+                  <p className="text-xl font-bold text-black">{gameCash}€</p>
+                </div>
+                <div className="rounded-xl bg-gray-100 p-3">
+                  <p className="text-xs uppercase tracking-wide text-gray-500">Barra de presión</p>
+                  <p className="text-xl font-bold text-black">{gamePressure}%</p>
+                </div>
+              </div>
+
+              <div className="mb-4 h-4 w-full overflow-hidden rounded-full bg-gray-200">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-emerald-500 via-yellow-400 to-red-500 transition-all duration-200"
+                  style={{ width: `${Math.min(gamePressure, 100)}%` }}
+                />
+              </div>
+              
+
+    <div className="absolute -left-2 top-6 h-16 w-16 rounded-full bg-emerald-300/20 blur-2xl animate-pulse" />
+    <div className="absolute -right-2 bottom-6 h-20 w-20 rounded-full bg-fuchsia-300/20 blur-2xl animate-pulse" />
+  </div>
+</div>
+        )}
 
         {screen === "amigos" && (
           <div className="mx-auto flex max-w-3xl animate-[fadeIn_.35s_ease] flex-col gap-6">
