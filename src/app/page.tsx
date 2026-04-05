@@ -1303,7 +1303,6 @@ export default function Home() {
             </div>
             <div>
               <p className="text-xs uppercase tracking-[0.25em] text-gray-500">TeDebo</p>
-              <h1 className="text-lg font-black text-black">La app para las cuentas con amigos</h1>
             </div>
           </div>
 
