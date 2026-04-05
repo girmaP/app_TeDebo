@@ -1360,6 +1360,7 @@ const menuItems: Screen[] = ["amigos", "gastos", "balances", "historial", "moros
   </div>
 </div>
 
+
   {/* Botón Inicio */}
   <button
     onClick={() => setScreen("home")}
