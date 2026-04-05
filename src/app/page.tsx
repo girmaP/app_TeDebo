@@ -1371,7 +1371,28 @@ const menuItems: Screen[] = ["amigos", "gastos", "balances", "historial", "moros
 
         {screen === "home" && (
           <div className="mx-auto flex max-w-6xl animate-[fadeIn_.35s_ease] flex-col gap-6">
-            <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-zinc-900 via-slate-800 to-black p-8 text-white shadow-2xl">
+            <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-zinc-900 via-slate-800 to-black p-8 text-white shadow-2xl min-h-[420px] lg:min-h-[460px]">
+              <div className="pointer-events-none absolute right-2 top-6 z-0 opacity-40 sm:right-4 sm:top-8 sm:opacity-50 lg:right-8 lg:top-1/2 lg:-translate-y-1/2 lg:opacity-70">
+  <div className="relative h-[140px] w-[140px] sm:h-[180px] sm:w-[180px] lg:h-[260px] lg:w-[260px]">
+    <div className="absolute inset-0 rounded-[32px] bg-white/10 blur-2xl" />
+
+    <div className="absolute left-1/2 top-1/2 grid h-28 w-28 -translate-x-1/2 -translate-y-1/2 grid-cols-3 gap-1 rounded-[20px] border border-white/15 bg-black/20 p-2 shadow-2xl backdrop-blur-md animate-[floatCube_6s_ease-in-out_infinite] sm:h-36 sm:w-36 sm:gap-1.5 sm:rounded-[24px] sm:p-3 lg:h-56 lg:w-56 lg:gap-2 lg:rounded-[28px] lg:p-4">
+      {[
+        "😏", "💸", "🕶️",
+        "🪙", "🤑", "💰",
+        "😈", "🏦", "🫰",
+      ].map((icon, index) => (
+        <div
+          key={index}
+          className="flex items-center justify-center rounded-lg border border-white/10 bg-white/10 text-sm shadow-inner backdrop-blur-sm sm:text-lg lg:rounded-xl lg:text-2xl"
+        >
+          {icon}
+        </div>
+      ))}
+    </div>
+  </div>
+</div>
+
               <div className="absolute -top-6 -left-6 h-24 w-24 rounded-full bg-white/10 blur-2xl" />
               <div className="absolute top-10 right-6 h-20 w-20 rounded-full bg-green-400/20 blur-2xl" />
               <div className="absolute bottom-0 left-1/3 h-24 w-24 rounded-full bg-red-400/20 blur-2xl" />
