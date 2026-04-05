@@ -21,3 +21,20 @@ body {
     transform: translateY(0);
   }
 }
+@keyframes floatCube {
+  0% {
+    transform: translate(-50%, -50%) rotate(-6deg) translateY(0px);
+  }
+  25% {
+    transform: translate(-50%, -50%) rotate(4deg) translateY(-6px);
+  }
+  50% {
+    transform: translate(-50%, -50%) rotate(8deg) translateY(2px);
+  }
+  75% {
+    transform: translate(-50%, -50%) rotate(-3deg) translateY(-4px);
+  }
+  100% {
+    transform: translate(-50%, -50%) rotate(-6deg) translateY(0px);
+  }
+}
