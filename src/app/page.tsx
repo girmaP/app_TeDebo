@@ -11,7 +11,7 @@ type User = {
   name: string | null
   is_admin?: boolean
   auth_user_id?: string | null
-  owner_id?: string | null
+  ow_r_id?: string | null
   is_pending?: boolean
   created_at?: string
 }
@@ -248,30 +248,41 @@ export default function Home() {
   }, [currentAppUser])
 
   const ensureCurrentAppUserProfile = async () => {
-    if (!user) return
+  if (!user) return
 
-    const { data: existing } = await supabase
-      .from("users")
-      .select("*")
-      .eq("auth_user_id", user.id)
-      .maybeSingle()
+  const { data: existing, error: existingError } = await supabase
+    .from("users")
+    .select("*")
+    .eq("auth_user_id", user.id)
+    .maybeSingle()
 
-    if (existing) return
-
-    const displayName =
-      [user.user_metadata?.nombre, user.user_metadata?.apellidos]
-        .filter(Boolean)
-        .join(" ")
-        .trim() ||
-      user.email?.split("@")[0] ||
-      "Usuario"
-
-    await supabase.from("users").insert({
-      name: displayName,
-      auth_user_id: user.id,
-      owner_id: user.id,
-    })
+  if (existingError) {
+    console.log("Error buscando usuario actual:", existingError)
+    return
   }
+
+  if (existing) return
+
+  const displayName =
+    [user.user_metadata?.nombre, user.user_metadata?.apellidos]
+      .filter(Boolean)
+      .join(" ")
+      .trim() ||
+    user.email?.split("@")[0] ||
+    "Usuario"
+
+  const { error: insertError } = await supabase.from("users").insert({
+    name: displayName,
+    auth_user_id: user.id,
+    owner_id: user.id,
+    email: user.email?.toLowerCase() || null,
+  })
+
+  if (insertError) {
+    console.log("Error creando perfil de usuario:", insertError)
+  }
+}
+
 
   const loadAll = async () => {
     await Promise.all([
