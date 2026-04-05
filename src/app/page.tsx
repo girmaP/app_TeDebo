@@ -1529,6 +1529,51 @@ const menuItems: Screen[] = ["amigos", "gastos", "balances", "historial", "moros
                   </>
                 )}
 
+                <div className="rounded-3xl border border-emerald-200 bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-500 p-6 text-white shadow-2xl">
+  <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+    <div className="max-w-2xl">
+      <div className="inline-flex w-fit items-center rounded-full bg-white/15 px-3 py-1 text-sm font-semibold backdrop-blur">
+        📩 Trae a tu gente
+      </div>
+
+      <h3 className="mt-3 text-2xl font-black sm:text-3xl">
+        Invita a tus colegas y empieza a repartir clavadas como dios manda
+      </h3>
+
+      <p className="mt-2 text-sm text-white/90 sm:text-base">
+        Mándales la invitación y que entren con el mismo correo al que les llegó. Si no, luego vienen los lloros.
+      </p>
+    </div>
+
+    <div className="w-full max-w-xl rounded-2xl bg-white/10 p-4 backdrop-blur-md">
+      <label className="mb-2 block text-sm font-semibold text-white">
+        Correo de tu colega
+      </label>
+
+      <div className="flex flex-col gap-3 sm:flex-row">
+        <input
+          placeholder="colega@correo.com"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          className="w-full rounded-xl border border-white/20 bg-white/90 p-3 text-black outline-none"
+        />
+
+        <button
+          onClick={addUser}
+          className="rounded-xl bg-black px-5 py-3 font-semibold text-white transition-all hover:scale-105 active:scale-95"
+        >
+          Enviar invitación
+        </button>
+      </div>
+
+      <p className="mt-3 text-xs text-white/80">
+        Importante: tu colega debe registrarse o iniciar sesión con ese mismo correo.
+      </p>
+    </div>
+  </div>
+</div>
+
+
                 {!gameRunning && gameMessage && (
                   <div className="absolute inset-0 grid place-items-center p-6 text-center">
                     <div className="max-w-md rounded-3xl bg-white/90 p-6 shadow-xl">
