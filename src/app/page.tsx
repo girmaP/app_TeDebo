@@ -1406,8 +1406,24 @@ export default function Home() {
       return
     }
 
-    await supabase.from("expense_splits").delete().eq("expense_id", expenseId)
-    await supabase.from("expenses").delete().eq("id", expenseId)
+    const { error: splitsError } = await supabase
+      .from("expense_splits")
+      .delete()
+      .eq("expense_id", expenseId)
+
+    const { error: expenseError } = await supabase
+      .from("expenses")
+      .delete()
+      .eq("id", expenseId)
+
+    if (splitsError || expenseError) {
+      alert("No se pudo borrar de verdad. Revisa permisos o vuelve a intentarlo.")
+      return
+    }
+
+    setExpenseSplits((prev) => prev.filter((split) => split.expense_id !== expenseId))
+    setExpenses((prev) => prev.filter((expense) => expense.id !== expenseId))
+    showToast("Elemento borrado 🗑️")
 
     await getExpenses()
     await getExpenseSplits()
@@ -1424,10 +1440,25 @@ export default function Home() {
       return
     }
 
-    await supabase.from("expense_splits").delete().in("expense_id", expenseIds)
-    await supabase.from("expenses").delete().in("id", expenseIds)
+    const { error: splitsError } = await supabase
+      .from("expense_splits")
+      .delete()
+      .in("expense_id", expenseIds)
 
+    const { error: expenseError } = await supabase
+      .from("expenses")
+      .delete()
+      .in("id", expenseIds)
+
+    if (splitsError || expenseError) {
+      alert("No se pudo borrar todo de verdad. Revisa permisos o vuelve a intentarlo.")
+      return
+    }
+
+    setExpenseSplits((prev) => prev.filter((split) => !expenseIds.includes(split.expense_id)))
+    setExpenses((prev) => prev.filter((expense) => !expenseIds.includes(expense.id)))
     showToast(successMessage)
+
     await getExpenses()
     await getExpenseSplits()
   }
