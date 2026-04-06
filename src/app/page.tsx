@@ -1369,260 +1369,231 @@ const menuItems: Screen[] = ["amigos", "gastos", "balances", "historial", "moros
           </div>
         </div>
 
-        {screen === "home" && (
-          <div className="mx-auto flex max-w-6xl animate-[fadeIn_.35s_ease] flex-col gap-6">
-            <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-zinc-900 via-slate-800 to-black p-8 text-white shadow-2xl min-h-[420px] lg:min-h-[460px]">
-              <div className="pointer-events-none absolute right-2 top-6 z-0 opacity-40 sm:right-4 sm:top-8 sm:opacity-50 lg:right-8 lg:top-1/2 lg:-translate-y-1/2 lg:opacity-70">
-  <div className="relative h-[140px] w-[140px] sm:h-[180px] sm:w-[180px] lg:h-[260px] lg:w-[260px]">
-    <div className="absolute inset-0 rounded-[32px] bg-white/10 blur-2xl" />
+{screen === "home" && (
+  <div className="mx-auto flex max-w-6xl animate-[fadeIn_.35s_ease] flex-col gap-6">
+    <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-zinc-900 via-slate-800 to-black p-8 text-white shadow-2xl">
+      <div className="absolute -top-6 -left-6 h-24 w-24 rounded-full bg-white/10 blur-2xl" />
+      <div className="absolute top-10 right-6 h-20 w-20 rounded-full bg-green-400/20 blur-2xl" />
+      <div className="absolute bottom-0 left-1/3 h-24 w-24 rounded-full bg-red-400/20 blur-2xl" />
 
-    <div className="absolute left-1/2 top-1/2 grid h-28 w-28 -translate-x-1/2 -translate-y-1/2 grid-cols-3 gap-1 rounded-[20px] border border-white/15 bg-black/20 p-2 shadow-2xl backdrop-blur-md animate-[floatCube_6s_ease-in-out_infinite] sm:h-36 sm:w-36 sm:gap-1.5 sm:rounded-[24px] sm:p-3 lg:h-56 lg:w-56 lg:gap-2 lg:rounded-[28px] lg:p-4">
-      {[
-        "😏", "💸", "🕶️",
-        "🪙", "🤑", "💰",
-        "😈", "🏦", "🫰",
-      ].map((icon, index) => (
-        <div
-          key={index}
-          className="flex items-center justify-center rounded-lg border border-white/10 bg-white/10 text-sm shadow-inner backdrop-blur-sm sm:text-lg lg:rounded-xl lg:text-2xl"
-        >
-          {icon}
-        </div>
-      ))}
-    </div>
-  </div>
-</div>
+      <div className="relative z-10 flex flex-col gap-8">
+        <div className="grid gap-8 lg:grid-cols-2 items-center">
+          <div className="max-w-2xl flex flex-col gap-4">
+            <div className="inline-flex w-fit items-center rounded-full border border-white/20 bg-white/10 px-3 py-1 text-sm backdrop-blur">
+              Bienvenido al rincón de las cuentas pendientes
+            </div>
 
-              <div className="absolute -top-6 -left-6 h-24 w-24 rounded-full bg-white/10 blur-2xl" />
-              <div className="absolute top-10 right-6 h-20 w-20 rounded-full bg-green-400/20 blur-2xl" />
-              <div className="absolute bottom-0 left-1/3 h-24 w-24 rounded-full bg-red-400/20 blur-2xl" />
+            <h2 className="text-4xl font-black leading-tight sm:text-5xl">
+              Si estás aquí,
+              <br />
+              <span className="text-green-300">alguien te debe pasta.</span>
+            </h2>
 
-              <div className="relative z-10 grid gap-8 lg:grid-cols-2 items-center">
-                <div className="relative z-10 max-w-2xl flex flex-col gap-4">
-                <div className="inline-flex w-fit items-center rounded-full border border-white/20 bg-white/10 px-3 py-1 text-sm backdrop-blur">
-                  Bienvenido al rincón de las cuentas pendientes
-                </div>
+            <p className="max-w-2xl text-sm text-gray-200 sm:text-base">
+              Grupos, amigos, gastos directos, balances globales y la lista negra del mes.
+            </p>
 
-                <div className="flex flex-1 items-center justify-center">
-  <div className="relative h-[280px] w-full max-w-[320px]">
-    <div className="absolute inset-0 rounded-[32px] bg-white/10 blur-2xl" />
-
-    <div className="absolute left-1/2 top-1/2 grid h-56 w-56 -translate-x-1/2 -translate-y-1/2 grid-cols-3 gap-2 rounded-[28px] border border-white/15 bg-black/20 p-4 shadow-2xl backdrop-blur-md animate-[floatCube_6s_ease-in-out_infinite]">
-      {[
-        "😏", "💸", "🕶️",
-        "🪙", "🤑", "💰",
-        "😈", "🏦", "🫰",
-      ].map((icon, index) => (
-        <div
-          key={index}
-          className="flex items-center justify-center rounded-xl border border-white/10 bg-white/10 text-2xl shadow-inner backdrop-blur-sm"
-        >
-          {icon}
-        </div>
-      ))}
-    </div>
-
-                <h2 className="relative z-10 text-4xl font-black leading-tight sm:text-5xl">
-                  Si estás aquí,
-                  <br />
-                  <span className="text-green-300">alguien te debe pasta.</span>
-                </h2>
-
-                <p className="max-w-2xl text-sm text-gray-200 sm:text-base">
-  Grupos, amigos, gastos directos, balances globales y la lista negra del mes.
-</p>
-
-<div className="flex flex-wrap gap-3 pt-2">
-  <div className="rounded-2xl bg-white/10 px-4 py-2 text-sm backdrop-blur">
-    Grupos reales
-  </div>
-  <div className="rounded-2xl bg-white/10 px-4 py-2 text-sm backdrop-blur">
-    Amigos y balances
-  </div>
-  <div className="rounded-2xl bg-white/10 px-4 py-2 text-sm backdrop-blur">
-    Historial y morosos
-  </div>
-</div>
-</div>
-
-
-</div>
-</div>
-              <div className="relative h-72 overflow-hidden rounded-2xl bg-gradient-to-br from-green-50 via-yellow-50 to-red-50">
-                <div className="absolute inset-0 opacity-60">
-                  <div className="absolute left-10 top-6 h-24 w-24 rounded-full bg-green-300/30 blur-2xl animate-pulse" />
-                  <div className="absolute right-10 bottom-6 h-24 w-24 rounded-full bg-red-300/30 blur-2xl animate-pulse" />
-                </div>
-
-                {gameRunning && (
-                  <>
-                    <button
-                      onClick={hitMoroso}
-                      className="absolute z-20 flex h-20 w-20 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-black text-3xl text-white shadow-xl transition-transform active:scale-90"
-                      style={{
-                        left: `${morosoPosition.x}%`,
-                        top: `${morosoPosition.y}%`,
-                      }}
-                    >
-                      💸
-                    </button>
-
-                    {coinBursts.map((coin) => (
-                      <div
-                        key={coin.id}
-                        className="pointer-events-none absolute z-30 -translate-x-1/2 -translate-y-1/2 text-lg font-black text-emerald-600"
-                        style={{
-                          left: `${coin.x}%`,
-                          top: `${coin.y - 8}%`,
-                        }}
-                      >
-                        +{coin.value}€
-                      </div>
-                    ))}
-
-                    <div className="absolute bottom-4 left-4 rounded-xl bg-white/80 px-3 py-2 text-sm text-black shadow">
-                      Se está haciendo el loco... tú sigue apretando.
-                    </div>
-
-                    <div className="absolute right-4 top-4 rounded-xl bg-white/80 px-3 py-2 text-sm text-black shadow">
-                      Tócalo antes de que se escape
-                    </div>
-                  </>
-                )}
-<div className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
-
-                {!gameRunning && gameMessage && (
-                  <div className="absolute inset-0 grid place-items-center p-6 text-center">
-                    <div className="max-w-md rounded-3xl bg-white/90 p-6 shadow-xl">
-                      <p className="text-5xl">{gameCash > 40 ? "🔥" : gameCash > 20 ? "😤" : "😂"}</p>
-                      <p className="mt-4 text-xl font-black text-black">{gameMessage}</p>
-                      <p className="mt-3 text-sm text-gray-600">
-                        Dinero recuperado en el juego: {gameCash}€
-                      </p>
-
-                      {moroso && (
-                        <p className="mt-2 text-sm font-semibold text-black">
-                          Pero recuerda: {getUserName(moroso.friendId)} aún te debe {moroso.amount.toFixed(2)}€
-                        </p>
-                      )}
-
-                      <button
-                        onClick={startMorosoGame}
-                        className="mt-5 rounded-xl bg-black px-4 py-3 text-white transition-all hover:scale-105 active:scale-95"
-                      >
-                        Volver a meter presión
-                      </button>
-                    </div>
-                  </div>
-                )}
+            <div className="flex flex-wrap gap-3 pt-2">
+              <div className="rounded-2xl bg-white/10 px-4 py-2 text-sm backdrop-blur">
+                Grupos reales
+              </div>
+              <div className="rounded-2xl bg-white/10 px-4 py-2 text-sm backdrop-blur">
+                Amigos y balances
+              </div>
+              <div className="rounded-2xl bg-white/10 px-4 py-2 text-sm backdrop-blur">
+                Historial y morosos
               </div>
             </div>
           </div>
+
+          <div className="flex flex-1 items-center justify-center">
+            <div className="relative h-[280px] w-full max-w-[320px]">
+              <div className="absolute inset-0 rounded-[32px] bg-white/10 blur-2xl" />
+
+              <div className="absolute left-1/2 top-1/2 grid h-56 w-56 -translate-x-1/2 -translate-y-1/2 grid-cols-3 gap-2 rounded-[28px] border border-white/15 bg-black/20 p-4 shadow-2xl backdrop-blur-md animate-[floatCube_6s_ease-in-out_infinite]">
+                {["😏", "💸", "🕶️", "🪙", "🤑", "💰", "😈", "🏦", "🫰"].map((icon, index) => (
+                  <div
+                    key={index}
+                    className="flex items-center justify-center rounded-xl border border-white/10 bg-white/10 text-2xl shadow-inner backdrop-blur-sm"
+                  >
+                    {icon}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
+          <div className="mb-3 flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-bold text-black">A por el moroso</h3>
+              <p className="text-sm text-gray-500">
+                Dale toques antes de que se vuelva a hacer el loco con tu pasta.
+              </p>
+            </div>
+
+            {!gameRunning && (
+              <button
+                onClick={startMorosoGame}
+                className="rounded-xl bg-black px-4 py-3 text-white transition-all hover:scale-105 active:scale-95"
+              >
+                Empezar
+              </button>
+            )}
           </div>
 
+          <div className="mb-4 grid gap-3 sm:grid-cols-3">
+            <div className="rounded-xl bg-gray-100 p-3">
+              <p className="text-xs uppercase tracking-wide text-gray-500">Tiempo</p>
+              <p className="text-xl font-bold text-black">{gameTimeLeft}s</p>
+            </div>
+            <div className="rounded-xl bg-gray-100 p-3">
+              <p className="text-xs uppercase tracking-wide text-gray-500">Pasta recuperada</p>
+              <p className="text-xl font-bold text-black">{gameCash}€</p>
+            </div>
+            <div className="rounded-xl bg-gray-100 p-3">
+              <p className="text-xs uppercase tracking-wide text-gray-500">Barra de presión</p>
+              <p className="text-xl font-bold text-black">{gamePressure}%</p>
+            </div>
+          </div>
 
-        <div className="rounded-3xl border border-emerald-200 bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-500 p-6 text-white shadow-2xl">
-  <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-    <div className="max-w-2xl">
-      <div className="inline-flex w-fit items-center rounded-full bg-white/15 px-3 py-1 text-sm font-semibold backdrop-blur">
-        📩 Trae a tu gente
-      </div>
+          <div className="mb-4 h-4 w-full overflow-hidden rounded-full bg-gray-200">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-emerald-500 via-yellow-400 to-red-500 transition-all duration-200"
+              style={{ width: `${Math.min(gamePressure, 100)}%` }}
+            />
+          </div>
 
-      <h3 className="mt-3 text-2xl font-black sm:text-3xl">
-        Invita a tus colegas y empieza a repartir clavadas como dios manda
-      </h3>
+          <div className="relative h-72 overflow-hidden rounded-2xl bg-gradient-to-br from-green-50 via-yellow-50 to-red-50">
+            <div className="absolute inset-0 opacity-60">
+              <div className="absolute left-10 top-6 h-24 w-24 rounded-full bg-green-300/30 blur-2xl animate-pulse" />
+              <div className="absolute right-10 bottom-6 h-24 w-24 rounded-full bg-red-300/30 blur-2xl animate-pulse" />
+            </div>
 
-      <p className="mt-2 text-sm text-white/90 sm:text-base">
-        Mándales la invitación y que entren con el mismo correo al que les llegó. Si no, luego vienen los lloros.
-      </p>
-    </div>
-
-    <div className="w-full max-w-xl rounded-2xl bg-white/10 p-4 backdrop-blur-md">
-      <label className="mb-2 block text-sm font-semibold text-white">
-        Correo de tu colega
-      </label>
-
-      <div className="flex flex-col gap-3 sm:flex-row">
-        <input
-          placeholder="colega@correo.com"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          className="w-full rounded-xl border border-white/20 bg-white/90 p-3 text-black outline-none"
-        />
-
-        <button
-          onClick={addUser}
-          className="rounded-xl bg-black px-5 py-3 font-semibold text-white transition-all hover:scale-105 active:scale-95"
-        >
-          Enviar invitación
-        </button>
-      </div>
-
-      <p className="mt-3 text-xs text-white/80">
-        Importante: tu colega debe registrarse o iniciar sesión con ese mismo correo.
-      </p>
-    </div>
-  </div>
-</div>
-        
-<div className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
-              <div className="mb-3 flex items-center justify-between">
-                <div>
-                  <h3 className="text-lg font-bold text-black">A por el moroso</h3>
-                  <p className="text-sm text-gray-500">
-                    Dale toques antes de que se vuelva a hacer el loco con tu pasta.
+            {!gameRunning && !gameMessage && (
+              <div className="absolute inset-0 grid place-items-center p-6 text-center">
+                <div className="max-w-md rounded-3xl bg-white/90 p-6 shadow-xl">
+                  <p className="text-5xl">😈</p>
+                  <p className="mt-3 text-lg font-bold text-black">Pulsa empezar y mete presión</p>
+                  <p className="mt-2 text-sm text-gray-600">
+                    Cuanto más le toques, más pasta rascas y más nervioso se pone.
                   </p>
                 </div>
+              </div>
+            )}
 
-                {!gameRunning && (
+            {gameRunning && (
+              <>
+                <button
+                  onClick={hitMoroso}
+                  className="absolute z-20 flex h-20 w-20 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-black text-3xl text-white shadow-xl transition-transform active:scale-90"
+                  style={{
+                    left: `${morosoPosition.x}%`,
+                    top: `${morosoPosition.y}%`,
+                  }}
+                >
+                  💸
+                </button>
+
+                {coinBursts.map((coin) => (
+                  <div
+                    key={coin.id}
+                    className="pointer-events-none absolute z-30 -translate-x-1/2 -translate-y-1/2 text-lg font-black text-emerald-600"
+                    style={{
+                      left: `${coin.x}%`,
+                      top: `${coin.y - 8}%`,
+                    }}
+                  >
+                    +{coin.value}€
+                  </div>
+                ))}
+
+                <div className="absolute bottom-4 left-4 rounded-xl bg-white/80 px-3 py-2 text-sm text-black shadow">
+                  Se está haciendo el loco... tú sigue apretando.
+                </div>
+
+                <div className="absolute right-4 top-4 rounded-xl bg-white/80 px-3 py-2 text-sm text-black shadow">
+                  Tócalo antes de que se escape
+                </div>
+              </>
+            )}
+
+            {!gameRunning && gameMessage && (
+              <div className="absolute inset-0 grid place-items-center p-6 text-center">
+                <div className="max-w-md rounded-3xl bg-white/90 p-6 shadow-xl">
+                  <p className="text-5xl">{gameCash > 40 ? "🔥" : gameCash > 20 ? "😤" : "😂"}</p>
+                  <p className="mt-4 text-xl font-black text-black">{gameMessage}</p>
+                  <p className="mt-3 text-sm text-gray-600">
+                    Dinero recuperado en el juego: {gameCash}€
+                  </p>
+
+                  {moroso && (
+                    <p className="mt-2 text-sm font-semibold text-black">
+                      Pero recuerda: {getUserName(moroso.friendId)} aún te debe {moroso.amount.toFixed(2)}€
+                    </p>
+                  )}
+
                   <button
                     onClick={startMorosoGame}
-                    className="rounded-xl bg-black px-4 py-3 text-white transition-all hover:scale-105 active:scale-95"
+                    className="mt-5 rounded-xl bg-black px-4 py-3 text-white transition-all hover:scale-105 active:scale-95"
                   >
-                    Empezar
+                    Volver a meter presión
                   </button>
-                )}
-              </div>
-
-              <div className="mb-4 grid gap-3 sm:grid-cols-3">
-                <div className="rounded-xl bg-gray-100 p-3">
-                  <p className="text-xs uppercase tracking-wide text-gray-500">Tiempo</p>
-                  <p className="text-xl font-bold text-black">{gameTimeLeft}s</p>
-                </div>
-                <div className="rounded-xl bg-gray-100 p-3">
-                  <p className="text-xs uppercase tracking-wide text-gray-500">Pasta recuperada</p>
-                  <p className="text-xl font-bold text-black">{gameCash}€</p>
-                </div>
-                <div className="rounded-xl bg-gray-100 p-3">
-                  <p className="text-xs uppercase tracking-wide text-gray-500">Barra de presión</p>
-                  <p className="text-xl font-bold text-black">{gamePressure}%</p>
                 </div>
               </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
 
-              <div className="mb-4 h-4 w-full overflow-hidden rounded-full bg-gray-200">
-                <div
-                  className="h-full rounded-full bg-gradient-to-r from-emerald-500 via-yellow-400 to-red-500 transition-all duration-200"
-                  style={{ width: `${Math.min(gamePressure, 100)}%` }}
-                />
-              </div>
-              
+    <div className="rounded-3xl border border-emerald-200 bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-500 p-6 text-white shadow-2xl">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="max-w-2xl">
+          <div className="inline-flex w-fit items-center rounded-full bg-white/15 px-3 py-1 text-sm font-semibold backdrop-blur">
+            📩 Trae a tu gente
+          </div>
 
-    <div className="absolute -left-2 top-6 h-16 w-16 rounded-full bg-emerald-300/20 blur-2xl animate-pulse" />
-    <div className="absolute -right-2 bottom-6 h-20 w-20 rounded-full bg-fuchsia-300/20 blur-2xl animate-pulse" />
+          <h3 className="mt-3 text-2xl font-black sm:text-3xl">
+            Invita a tus colegas y empieza a repartir clavadas como dios manda
+          </h3>
+
+          <p className="mt-2 text-sm text-white/90 sm:text-base">
+            Mándales la invitación y que entren con el mismo correo al que les llegó. Si no, luego vienen los lloros.
+          </p>
+        </div>
+
+        <div className="w-full max-w-xl rounded-2xl bg-white/10 p-4 backdrop-blur-md">
+          <label className="mb-2 block text-sm font-semibold text-white">
+            Correo de tu colega
+          </label>
+
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <input
+              placeholder="colega@correo.com"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="w-full rounded-xl border border-white/20 bg-white/90 p-3 text-black outline-none"
+            />
+
+            <button
+              onClick={addUser}
+              className="rounded-xl bg-black px-5 py-3 font-semibold text-white transition-all hover:scale-105 active:scale-95"
+            >
+              Enviar invitación
+            </button>
+          </div>
+
+          <p className="mt-3 text-xs text-white/80">
+            Importante: tu colega debe registrarse o iniciar sesión con ese mismo correo.
+          </p>
+        </div>
+      </div>
+    </div>
   </div>
-</div>
-        )}
-        {!gameRunning && !gameMessage && (
-                  <div className="absolute inset-0 grid place-items-center p-6 text-center">
-                    <div>
-                      <p className="text-5xl">😈</p>
-                      <p className="mt-3 text-lg font-bold text-black">Pulsa empezar y mete presión</p>
-                      <p className="mt-2 text-sm text-gray-600">
-                        Cuanto más le toques, más pasta rascas y más nervioso se pone.
-                      </p>
-                    </div>
-                  </div>
-                )}
+)}
+
 
         {screen === "amigos" && (
           <div className="mx-auto flex max-w-3xl animate-[fadeIn_.35s_ease] flex-col gap-6">
