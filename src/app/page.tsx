@@ -195,6 +195,7 @@ export default function Home() {
 const menuItems: Screen[] = ["amigos", "gastos", "balances", "historial", "moroso"]
 
   const [gameRunning, setGameRunning] = useState(false)
+  const [showGameFullscreen, setShowGameFullscreen] = useState(false)
   const [gameTimeLeft, setGameTimeLeft] = useState(12)
   const [gamePressure, setGamePressure] = useState(0)
   const [gameCash, setGameCash] = useState(0)
@@ -649,17 +650,25 @@ const menuItems: Screen[] = ["amigos", "gastos", "balances", "historial", "moros
     setCustomSplits({})
   }
 
-  const startMorosoGame = () => {
-    setGameRunning(true)
-    setGameTimeLeft(12)
-    setGamePressure(0)
-    setGameCash(0)
-    setGameMessage("")
-    setCoinBursts([])
-    setGameRound((r) => r + 1)
+const startMorosoGame = () => {
+  setShowGameFullscreen(true)
+  setGameRunning(true)
+  setGameTimeLeft(12)
+  setGamePressure(0)
+  setGameCash(0)
+  setGameMessage("")
+  setCoinBursts([])
+  setGameRound((r) => r + 1)
 
-    moveMoroso()
-  }
+  moveMoroso()
+}
+const closeMorosoGame = () => {
+  setShowGameFullscreen(false)
+  setGameRunning(false)
+  setGameMessage("")
+  setCoinBursts([])
+}
+
 
   const moveMoroso = () => {
     const x = Math.random() * 70
@@ -1376,178 +1385,55 @@ const menuItems: Screen[] = ["amigos", "gastos", "balances", "historial", "moros
       <div className="absolute top-10 right-6 h-20 w-20 rounded-full bg-green-400/20 blur-2xl" />
       <div className="absolute bottom-0 left-1/3 h-24 w-24 rounded-full bg-red-400/20 blur-2xl" />
 
-      <div className="relative z-10 flex flex-col gap-8">
-        <div className="grid gap-8 lg:grid-cols-2 items-center">
-          <div className="max-w-2xl flex flex-col gap-4">
-            <div className="inline-flex w-fit items-center rounded-full border border-white/20 bg-white/10 px-3 py-1 text-sm backdrop-blur">
-              Bienvenido al rincón de las cuentas pendientes
-            </div>
-
-            <h2 className="text-4xl font-black leading-tight sm:text-5xl">
-              Si estás aquí,
-              <br />
-              <span className="text-green-300">alguien te debe pasta.</span>
-            </h2>
-
-            <p className="max-w-2xl text-sm text-gray-200 sm:text-base">
-              Grupos, amigos, gastos directos, balances globales y la lista negra del mes.
-            </p>
-
-            <div className="flex flex-wrap gap-3 pt-2">
-              <div className="rounded-2xl bg-white/10 px-4 py-2 text-sm backdrop-blur">
-                Grupos reales
-              </div>
-              <div className="rounded-2xl bg-white/10 px-4 py-2 text-sm backdrop-blur">
-                Amigos y balances
-              </div>
-              <div className="rounded-2xl bg-white/10 px-4 py-2 text-sm backdrop-blur">
-                Historial y morosos
-              </div>
-            </div>
+      <div className="relative z-10 grid gap-8 lg:grid-cols-2 items-center">
+        <div className="max-w-2xl flex flex-col gap-4">
+          <div className="inline-flex w-fit items-center rounded-full border border-white/20 bg-white/10 px-3 py-1 text-sm backdrop-blur">
+            Bienvenido al rincón de las cuentas pendientes
           </div>
 
-          <div className="flex flex-1 items-center justify-center">
-            <div className="relative h-[280px] w-full max-w-[320px]">
-              <div className="absolute inset-0 rounded-[32px] bg-white/10 blur-2xl" />
+          <h2 className="text-4xl font-black leading-tight sm:text-5xl">
+            Si estás aquí,
+            <br />
+            <span className="text-green-300">alguien te debe pasta.</span>
+          </h2>
 
-              <div className="absolute left-1/2 top-1/2 grid h-56 w-56 -translate-x-1/2 -translate-y-1/2 grid-cols-3 gap-2 rounded-[28px] border border-white/15 bg-black/20 p-4 shadow-2xl backdrop-blur-md animate-[floatCube_6s_ease-in-out_infinite]">
-                {["😏", "💸", "🕶️", "🪙", "🤑", "💰", "😈", "🏦", "🫰"].map((icon, index) => (
-                  <div
-                    key={index}
-                    className="flex items-center justify-center rounded-xl border border-white/10 bg-white/10 text-2xl shadow-inner backdrop-blur-sm"
-                  >
-                    {icon}
-                  </div>
-                ))}
-              </div>
+          <p className="max-w-2xl text-sm text-gray-200 sm:text-base">
+            Grupos, amigos, gastos directos, balances globales y la lista negra del mes.
+          </p>
+
+          <div className="flex flex-wrap gap-3 pt-2">
+            <div className="rounded-2xl bg-white/10 px-4 py-2 text-sm backdrop-blur">
+              Grupos reales
+            </div>
+            <div className="rounded-2xl bg-white/10 px-4 py-2 text-sm backdrop-blur">
+              Amigos y balances
+            </div>
+            <div className="rounded-2xl bg-white/10 px-4 py-2 text-sm backdrop-blur">
+              Historial y morosos
             </div>
           </div>
         </div>
 
-        <div className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
-          <div className="mb-3 flex items-center justify-between">
-            <div>
-              <h3 className="text-lg font-bold text-black">A por el moroso</h3>
-              <p className="text-sm text-gray-500">
-                Dale toques antes de que se vuelva a hacer el loco con tu pasta.
-              </p>
-            </div>
+        <div className="flex flex-1 items-center justify-center">
+          <div className="relative h-[280px] w-full max-w-[320px]">
+            <div className="absolute inset-0 rounded-[32px] bg-white/10 blur-2xl" />
 
-            {!gameRunning && (
-              <button
-                onClick={startMorosoGame}
-                className="rounded-xl bg-black px-4 py-3 text-white transition-all hover:scale-105 active:scale-95"
-              >
-                Empezar
-              </button>
-            )}
-          </div>
-
-          <div className="mb-4 grid gap-3 sm:grid-cols-3">
-            <div className="rounded-xl bg-gray-100 p-3">
-              <p className="text-xs uppercase tracking-wide text-gray-500">Tiempo</p>
-              <p className="text-xl font-bold text-black">{gameTimeLeft}s</p>
-            </div>
-            <div className="rounded-xl bg-gray-100 p-3">
-              <p className="text-xs uppercase tracking-wide text-gray-500">Pasta recuperada</p>
-              <p className="text-xl font-bold text-black">{gameCash}€</p>
-            </div>
-            <div className="rounded-xl bg-gray-100 p-3">
-              <p className="text-xs uppercase tracking-wide text-gray-500">Barra de presión</p>
-              <p className="text-xl font-bold text-black">{gamePressure}%</p>
-            </div>
-          </div>
-
-          <div className="mb-4 h-4 w-full overflow-hidden rounded-full bg-gray-200">
-            <div
-              className="h-full rounded-full bg-gradient-to-r from-emerald-500 via-yellow-400 to-red-500 transition-all duration-200"
-              style={{ width: `${Math.min(gamePressure, 100)}%` }}
-            />
-          </div>
-
-          <div className="relative h-72 overflow-hidden rounded-2xl bg-gradient-to-br from-green-50 via-yellow-50 to-red-50">
-            <div className="absolute inset-0 opacity-60">
-              <div className="absolute left-10 top-6 h-24 w-24 rounded-full bg-green-300/30 blur-2xl animate-pulse" />
-              <div className="absolute right-10 bottom-6 h-24 w-24 rounded-full bg-red-300/30 blur-2xl animate-pulse" />
-            </div>
-
-            {!gameRunning && !gameMessage && (
-              <div className="absolute inset-0 grid place-items-center p-6 text-center">
-                <div className="max-w-md rounded-3xl bg-white/90 p-6 shadow-xl">
-                  <p className="text-5xl">😈</p>
-                  <p className="mt-3 text-lg font-bold text-black">Pulsa empezar y mete presión</p>
-                  <p className="mt-2 text-sm text-gray-600">
-                    Cuanto más le toques, más pasta rascas y más nervioso se pone.
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {gameRunning && (
-              <>
-                <button
-                  onClick={hitMoroso}
-                  className="absolute z-20 flex h-20 w-20 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-black text-3xl text-white shadow-xl transition-transform active:scale-90"
-                  style={{
-                    left: `${morosoPosition.x}%`,
-                    top: `${morosoPosition.y}%`,
-                  }}
+            <div className="absolute left-1/2 top-1/2 grid h-56 w-56 -translate-x-1/2 -translate-y-1/2 grid-cols-3 gap-2 rounded-[28px] border border-white/15 bg-black/20 p-4 shadow-2xl backdrop-blur-md animate-[floatCube_6s_ease-in-out_infinite]">
+              {["😏", "💸", "🕶️", "🪙", "🤑", "💰", "😈", "🏦", "🫰"].map((icon, index) => (
+                <div
+                  key={index}
+                  className="flex items-center justify-center rounded-xl border border-white/10 bg-white/10 text-2xl shadow-inner backdrop-blur-sm"
                 >
-                  💸
-                </button>
-
-                {coinBursts.map((coin) => (
-                  <div
-                    key={coin.id}
-                    className="pointer-events-none absolute z-30 -translate-x-1/2 -translate-y-1/2 text-lg font-black text-emerald-600"
-                    style={{
-                      left: `${coin.x}%`,
-                      top: `${coin.y - 8}%`,
-                    }}
-                  >
-                    +{coin.value}€
-                  </div>
-                ))}
-
-                <div className="absolute bottom-4 left-4 rounded-xl bg-white/80 px-3 py-2 text-sm text-black shadow">
-                  Se está haciendo el loco... tú sigue apretando.
+                  {icon}
                 </div>
-
-                <div className="absolute right-4 top-4 rounded-xl bg-white/80 px-3 py-2 text-sm text-black shadow">
-                  Tócalo antes de que se escape
-                </div>
-              </>
-            )}
-
-            {!gameRunning && gameMessage && (
-              <div className="absolute inset-0 grid place-items-center p-6 text-center">
-                <div className="max-w-md rounded-3xl bg-white/90 p-6 shadow-xl">
-                  <p className="text-5xl">{gameCash > 40 ? "🔥" : gameCash > 20 ? "😤" : "😂"}</p>
-                  <p className="mt-4 text-xl font-black text-black">{gameMessage}</p>
-                  <p className="mt-3 text-sm text-gray-600">
-                    Dinero recuperado en el juego: {gameCash}€
-                  </p>
-
-                  {moroso && (
-                    <p className="mt-2 text-sm font-semibold text-black">
-                      Pero recuerda: {getUserName(moroso.friendId)} aún te debe {moroso.amount.toFixed(2)}€
-                    </p>
-                  )}
-
-                  <button
-                    onClick={startMorosoGame}
-                    className="mt-5 rounded-xl bg-black px-4 py-3 text-white transition-all hover:scale-105 active:scale-95"
-                  >
-                    Volver a meter presión
-                  </button>
-                </div>
-              </div>
-            )}
+              ))}
+            </div>
           </div>
         </div>
       </div>
     </div>
 
+    {/* INVITAR AMIGOS AHORA VA ARRIBA DEL JUEGO */}
     <div className="rounded-3xl border border-emerald-200 bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-500 p-6 text-white shadow-2xl">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="max-w-2xl">
@@ -1589,6 +1475,57 @@ const menuItems: Screen[] = ["amigos", "gastos", "balances", "historial", "moros
             Importante: tu colega debe registrarse o iniciar sesión con ese mismo correo.
           </p>
         </div>
+      </div>
+    </div>
+
+    {/* JUEGO AHORA VA ABAJO */}
+    <div className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
+      <div className="mb-3 flex items-center justify-between">
+        <div>
+          <h3 className="text-lg font-bold text-black">A por el moroso</h3>
+          <p className="text-sm text-gray-500">
+            Dale toques antes de que se vuelva a hacer el loco con tu pasta.
+          </p>
+        </div>
+
+        {!gameRunning && (
+          <button
+            onClick={startMorosoGame}
+            className="rounded-xl bg-black px-4 py-3 text-white transition-all hover:scale-105 active:scale-95"
+          >
+            Empezar
+          </button>
+        )}
+      </div>
+
+      <div className="mb-4 grid gap-3 sm:grid-cols-3">
+        <div className="rounded-xl bg-gray-100 p-3">
+          <p className="text-xs uppercase tracking-wide text-gray-500">Tiempo</p>
+          <p className="text-xl font-bold text-black">{gameTimeLeft}s</p>
+        </div>
+        <div className="rounded-xl bg-gray-100 p-3">
+          <p className="text-xs uppercase tracking-wide text-gray-500">Pasta recuperada</p>
+          <p className="text-xl font-bold text-black">{gameCash}€</p>
+        </div>
+        <div className="rounded-xl bg-gray-100 p-3">
+          <p className="text-xs uppercase tracking-wide text-gray-500">Barra de presión</p>
+          <p className="text-xl font-bold text-black">{gamePressure}%</p>
+        </div>
+      </div>
+
+      <div className="mb-4 h-4 w-full overflow-hidden rounded-full bg-gray-200">
+        <div
+          className="h-full rounded-full bg-gradient-to-r from-emerald-500 via-yellow-400 to-red-500 transition-all duration-200"
+          style={{ width: `${Math.min(gamePressure, 100)}%` }}
+        />
+      </div>
+
+      <div className="rounded-2xl bg-gray-50 p-6 text-center">
+        <p className="text-4xl">🎮</p>
+        <p className="mt-3 text-lg font-bold text-black">Minijuego listo</p>
+        <p className="mt-2 text-sm text-gray-600">
+          Ahora al pulsar empezar se abrirá en pantalla completa.
+        </p>
       </div>
     </div>
   </div>
@@ -2082,6 +2019,147 @@ const menuItems: Screen[] = ["amigos", "gastos", "balances", "historial", "moros
           </div>
         )}
       </div>
+
+{showGameFullscreen && (
+  <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black px-4 py-4">
+    <div className="relative h-full w-full overflow-hidden rounded-none bg-gradient-to-br from-zinc-950 via-slate-900 to-black text-white md:rounded-3xl">
+      <div className="absolute inset-0 opacity-60">
+        <div className="absolute left-10 top-10 h-32 w-32 rounded-full bg-emerald-400/20 blur-3xl animate-pulse" />
+        <div className="absolute right-10 bottom-10 h-32 w-32 rounded-full bg-red-400/20 blur-3xl animate-pulse" />
+      </div>
+
+      <div className="relative z-10 flex h-full flex-col">
+        <div className="flex items-center justify-between border-b border-white/10 px-4 py-4 sm:px-6">
+          <div>
+            <h3 className="text-xl font-black">A por el moroso</h3>
+            <p className="text-sm text-white/70">
+              Pantalla completa activada. Ahora sí, presión máxima.
+            </p>
+          </div>
+
+          <button
+            onClick={closeMorosoGame}
+            className="rounded-xl bg-red-500 px-4 py-2 font-semibold text-white transition-all hover:scale-105 active:scale-95"
+          >
+            Salir
+          </button>
+        </div>
+
+        <div className="grid gap-3 px-4 py-4 sm:grid-cols-3 sm:px-6">
+          <div className="rounded-2xl bg-white/10 p-4 backdrop-blur">
+            <p className="text-xs uppercase tracking-wide text-white/60">Tiempo</p>
+            <p className="text-2xl font-black">{gameTimeLeft}s</p>
+          </div>
+
+          <div className="rounded-2xl bg-white/10 p-4 backdrop-blur">
+            <p className="text-xs uppercase tracking-wide text-white/60">Pasta recuperada</p>
+            <p className="text-2xl font-black">{gameCash}€</p>
+          </div>
+
+          <div className="rounded-2xl bg-white/10 p-4 backdrop-blur">
+            <p className="text-xs uppercase tracking-wide text-white/60">Presión</p>
+            <p className="text-2xl font-black">{gamePressure}%</p>
+          </div>
+        </div>
+
+        <div className="px-4 sm:px-6">
+          <div className="h-4 w-full overflow-hidden rounded-full bg-white/10">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-emerald-500 via-yellow-400 to-red-500 transition-all duration-200"
+              style={{ width: `${Math.min(gamePressure, 100)}%` }}
+            />
+          </div>
+        </div>
+
+        <div className="relative mt-4 flex-1 overflow-hidden px-4 pb-4 sm:px-6 sm:pb-6">
+          <div className="relative h-full min-h-[420px] overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-green-50 via-yellow-50 to-red-50">
+            {!gameRunning && !gameMessage && (
+              <div className="absolute inset-0 grid place-items-center p-6 text-center">
+                <div className="max-w-md rounded-3xl bg-white/90 p-6 shadow-xl">
+                  <p className="text-5xl">😈</p>
+                  <p className="mt-3 text-lg font-bold text-black">Pulsa empezar y mete presión</p>
+                  <p className="mt-2 text-sm text-gray-600">
+                    Cuanto más le toques, más pasta rascas y más nervioso se pone.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {gameRunning && (
+              <>
+                <button
+                  onClick={hitMoroso}
+                  className="absolute z-20 flex h-24 w-24 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-black text-4xl text-white shadow-xl transition-transform active:scale-90"
+                  style={{
+                    left: `${morosoPosition.x}%`,
+                    top: `${morosoPosition.y}%`,
+                  }}
+                >
+                  💸
+                </button>
+
+                {coinBursts.map((coin) => (
+                  <div
+                    key={coin.id}
+                    className="pointer-events-none absolute z-30 -translate-x-1/2 -translate-y-1/2 text-2xl font-black text-emerald-600"
+                    style={{
+                      left: `${coin.x}%`,
+                      top: `${coin.y - 8}%`,
+                    }}
+                  >
+                    +{coin.value}€
+                  </div>
+                ))}
+
+                <div className="absolute bottom-4 left-4 rounded-xl bg-white/80 px-3 py-2 text-sm text-black shadow">
+                  Se está haciendo el loco... tú sigue apretando.
+                </div>
+
+                <div className="absolute right-4 top-4 rounded-xl bg-white/80 px-3 py-2 text-sm text-black shadow">
+                  Tócalo antes de que se escape
+                </div>
+              </>
+            )}
+
+            {!gameRunning && gameMessage && (
+              <div className="absolute inset-0 grid place-items-center p-6 text-center">
+                <div className="max-w-md rounded-3xl bg-white/90 p-6 shadow-xl">
+                  <p className="text-5xl">{gameCash > 40 ? "🔥" : gameCash > 20 ? "😤" : "😂"}</p>
+                  <p className="mt-4 text-xl font-black text-black">{gameMessage}</p>
+                  <p className="mt-3 text-sm text-gray-600">
+                    Dinero recuperado en el juego: {gameCash}€
+                  </p>
+
+                  {moroso && (
+                    <p className="mt-2 text-sm font-semibold text-black">
+                      Pero recuerda: {getUserName(moroso.friendId)} aún te debe {moroso.amount.toFixed(2)}€
+                    </p>
+                  )}
+
+                  <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:justify-center">
+                    <button
+                      onClick={startMorosoGame}
+                      className="rounded-xl bg-black px-4 py-3 text-white transition-all hover:scale-105 active:scale-95"
+                    >
+                      Volver a meter presión
+                    </button>
+
+                    <button
+                      onClick={closeMorosoGame}
+                      className="rounded-xl bg-red-500 px-4 py-3 text-white transition-all hover:scale-105 active:scale-95"
+                    >
+                      Salir
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
 
       {tagModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
