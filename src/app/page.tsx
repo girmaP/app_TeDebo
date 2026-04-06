@@ -10,6 +10,7 @@ type User = {
   id: string
   name: string | null
   email?: string | null
+  avatar_url?: string | null
   is_admin?: boolean
   auth_user_id?: string | null
   created_at?: string
@@ -224,7 +225,9 @@ export default function Home() {
   const [toast, setToast] = useState("")
   const [isEditingProfile, setIsEditingProfile] = useState(false)
   const [profileName, setProfileName] = useState("")
+  const [profileAvatarUrl, setProfileAvatarUrl] = useState("")
   const [profileSaving, setProfileSaving] = useState(false)
+  const [avatarUploading, setAvatarUploading] = useState(false)
 
   const [showGuide, setShowGuide] = useState(true)
   const [showGamesMenu, setShowGamesMenu] = useState(false)
@@ -424,6 +427,51 @@ export default function Home() {
     return Array.from(uniqueMap.values())
   }, [users, friendships])
 
+  const getInitials = (value?: string | null) => {
+    const fallback = "US"
+    if (!value?.trim()) return fallback
+    const initials = value
+      .split(" ")
+      .filter(Boolean)
+      .map((part) => part[0])
+      .join("")
+      .slice(0, 2)
+      .toUpperCase()
+    return initials || fallback
+  }
+
+  const uploadProfileAvatar = async (file: File) => {
+    if (!currentAppUser || !user) return
+
+    setAvatarUploading(true)
+
+    const fileExt = file.name.split(".").pop() || "jpg"
+    const filePath = `${user.id}/${Date.now()}.${fileExt}`
+
+    const { error: uploadError } = await supabase.storage
+      .from("avatars")
+      .upload(filePath, file, { upsert: true })
+
+    if (uploadError) {
+      setAvatarUploading(false)
+      alert("Error subiendo la foto. Revisa que exista el bucket 'avatars' en Supabase.")
+      return
+    }
+
+    const { data } = supabase.storage.from("avatars").getPublicUrl(filePath)
+    const publicUrl = data.publicUrl
+
+    if (!publicUrl) {
+      setAvatarUploading(false)
+      alert("No se pudo obtener la URL pública de la imagen")
+      return
+    }
+
+    setProfileAvatarUrl(publicUrl)
+    setAvatarUploading(false)
+    showToast("Foto subida ✅")
+  }
+
   const saveProfile = async () => {
     if (!currentAppUser) return
 
@@ -437,13 +485,16 @@ export default function Home() {
 
     const { error } = await supabase
       .from("users")
-      .update({ name: cleanName })
+      .update({
+        name: cleanName,
+        avatar_url: profileAvatarUrl.trim() || null,
+      })
       .eq("id", currentAppUser.id)
 
     setProfileSaving(false)
 
     if (error) {
-      alert("Error guardando el perfil")
+      alert("Error guardando el perfil. Si falla la foto, crea la columna avatar_url en users.")
       return
     }
 
@@ -2261,8 +2312,16 @@ export default function Home() {
             <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
               <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
                 <div className="flex items-center gap-4">
-                  <div className="grid h-20 w-20 place-items-center rounded-full bg-black text-2xl font-black text-white shadow-lg">
-                    {((currentAppUser?.name || "US").split(" ").map((part) => part[0]).join("").slice(0, 2) || "US").toUpperCase()}
+                  <div className="grid h-20 w-20 place-items-center overflow-hidden rounded-full bg-black text-2xl font-black text-white shadow-lg">
+                    {currentAppUser?.avatar_url ? (
+                      <img
+                        src={currentAppUser.avatar_url}
+                        alt="Avatar"
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      getInitials(currentAppUser?.name)
+                    )}
                   </div>
 
                   <div>
@@ -2283,6 +2342,7 @@ export default function Home() {
                   <button
                     onClick={() => {
                       setProfileName(currentAppUser?.name || "")
+                      setProfileAvatarUrl(currentAppUser?.avatar_url || "")
                       setIsEditingProfile((prev) => !prev)
                     }}
                     className="rounded-xl bg-black px-4 py-3 text-white transition-all hover:scale-105 active:scale-95"
@@ -2310,31 +2370,77 @@ export default function Home() {
                   Aquí puedes cambiar el nombre que ven tus colegas dentro de la app.
                 </p>
 
-                <div className="mt-4 grid gap-4 md:grid-cols-[1fr_auto_auto]">
-                  <input
-                    value={profileName}
-                    onChange={(e) => setProfileName(e.target.value)}
-                    placeholder="Tu nombre"
-                    className="w-full rounded-xl border border-gray-300 p-3 text-black outline-none"
-                  />
+                <div className="mt-4 grid gap-4">
+                  <div className="grid gap-4 md:grid-cols-[120px_1fr] md:items-center">
+                    <div className="grid h-24 w-24 place-items-center overflow-hidden rounded-full bg-black text-2xl font-black text-white shadow-lg">
+                      {profileAvatarUrl ? (
+                        <img src={profileAvatarUrl} alt="Avatar" className="h-full w-full object-cover" />
+                      ) : (
+                        getInitials(profileName || currentAppUser?.name)
+                      )}
+                    </div>
 
-                  <button
-                    onClick={saveProfile}
-                    disabled={profileSaving}
-                    className="rounded-xl bg-black px-5 py-3 font-semibold text-white transition-all hover:scale-105 active:scale-95 disabled:opacity-60"
-                  >
-                    {profileSaving ? "Guardando..." : "Guardar"}
-                  </button>
+                    <div className="grid gap-3">
+                      <input
+                        value={profileName}
+                        onChange={(e) => setProfileName(e.target.value)}
+                        placeholder="Tu nombre"
+                        className="w-full rounded-xl border border-gray-300 p-3 text-black outline-none"
+                      />
 
-                  <button
-                    onClick={() => {
-                      setProfileName(currentAppUser?.name || "")
-                      setIsEditingProfile(false)
-                    }}
-                    className="rounded-xl bg-gray-200 px-5 py-3 font-semibold text-black transition-all hover:scale-105 active:scale-95"
-                  >
-                    Cancelar
-                  </button>
+                      <input
+                        value={profileAvatarUrl}
+                        onChange={(e) => setProfileAvatarUrl(e.target.value)}
+                        placeholder="URL de la foto (opcional)"
+                        className="w-full rounded-xl border border-gray-300 p-3 text-black outline-none"
+                      />
+
+                      <div className="flex flex-col gap-3 sm:flex-row">
+                        <label className="cursor-pointer rounded-xl bg-gray-200 px-5 py-3 font-semibold text-black transition-all hover:scale-105 active:scale-95 text-center">
+                          {avatarUploading ? "Subiendo..." : "Subir foto"}
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={async (e) => {
+                              const file = e.target.files?.[0]
+                              if (file) await uploadProfileAvatar(file)
+                            }}
+                          />
+                        </label>
+
+                        {profileAvatarUrl && (
+                          <button
+                            onClick={() => setProfileAvatarUrl("")}
+                            className="rounded-xl bg-white border border-gray-300 px-5 py-3 font-semibold text-black transition-all hover:scale-105 active:scale-95"
+                          >
+                            Quitar foto
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-4 md:grid-cols-[auto_auto] md:justify-start">
+                    <button
+                      onClick={saveProfile}
+                      disabled={profileSaving || avatarUploading}
+                      className="rounded-xl bg-black px-5 py-3 font-semibold text-white transition-all hover:scale-105 active:scale-95 disabled:opacity-60"
+                    >
+                      {profileSaving ? "Guardando..." : "Guardar"}
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setProfileName(currentAppUser?.name || "")
+                        setProfileAvatarUrl(currentAppUser?.avatar_url || "")
+                        setIsEditingProfile(false)
+                      }}
+                      className="rounded-xl bg-gray-200 px-5 py-3 font-semibold text-black transition-all hover:scale-105 active:scale-95"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
