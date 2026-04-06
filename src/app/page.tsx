@@ -83,7 +83,7 @@ type NotificationItem = {
   title: string
   message: string
   createdAt: string
-  type: "invite" | "expense" | "debt" | "reminder"
+  type: "invite" | "expense" | "debt" | "reminder" | "settlement_request"
   ctaLabel?: string
   ctaScreen?: Screen
 }
@@ -236,6 +236,7 @@ export default function Home() {
   const [authMode, setAuthMode] = useState<"login" | "register">("login")
   const [tagModal, setTagModal] = useState<TagInfo | null>(null)
   const [toast, setToast] = useState("")
+  const [actionFlash, setActionFlash] = useState<{ emoji: string; text: string } | null>(null)
   const [isEditingProfile, setIsEditingProfile] = useState(false)
   const [profileName, setProfileName] = useState("")
   const [profileAvatarUrl, setProfileAvatarUrl] = useState("")
@@ -273,6 +274,41 @@ export default function Home() {
   const showToast = (message: string) => {
     setToast(message)
     setTimeout(() => setToast(""), 2200)
+  }
+
+  const triggerActionFlash = (emoji: string, text: string) => {
+    setActionFlash({ emoji, text })
+    setTimeout(() => setActionFlash(null), 1400)
+  }
+
+  const buildSettlementRequestMessage = ({
+    scope,
+    debtorId,
+    creditorId,
+    amount,
+    groupId,
+  }: {
+    scope: "friend" | "group"
+    debtorId: string
+    creditorId: string
+    amount: number
+    groupId?: string | null
+  }) => {
+    return `SETTLEMENT_REQUEST|${scope}|${groupId || "none"}|${debtorId}|${creditorId}|${amount.toFixed(2)}`
+  }
+
+  const parseSettlementRequestMessage = (message: string) => {
+    if (!message.startsWith("SETTLEMENT_REQUEST|")) return null
+    const parts = message.split("|")
+    if (parts.length < 6) return null
+
+    return {
+      scope: parts[1] as "friend" | "group",
+      groupId: parts[2] === "none" ? null : parts[2],
+      debtorId: parts[3],
+      creditorId: parts[4],
+      amount: Number(parts[5]),
+    }
   }
 
   useEffect(() => {
@@ -612,8 +648,15 @@ export default function Home() {
       message: n.message,
       createdAt: n.created_at,
       type: n.type,
-      ctaLabel: n.type === "invite" ? "Ver amigos" : n.type === "expense" ? "Ver historial" : "Ver amigos",
-      ctaScreen: n.type === "expense" ? "historial" : "amigos",
+      ctaLabel:
+        n.type === "invite"
+          ? "Ver amigos"
+          : n.type === "expense"
+          ? "Ver historial"
+          : n.type === "settlement_request"
+          ? "Ver balances"
+          : "Ver amigos",
+      ctaScreen: n.type === "expense" ? "historial" : n.type === "settlement_request" ? "balances" : "amigos",
     }))
 
     setDbNotifications(mapped)
@@ -1352,6 +1395,7 @@ export default function Home() {
 
     resetExpenseForm()
     showToast("Gasto añadido ✅")
+    triggerActionFlash("💸", "Gasto añadido")
     await getExpenses()
     await getExpenseSplits()
   }
@@ -1441,26 +1485,72 @@ export default function Home() {
       { expense_id: expenseId, user_id: item.creditorId, amount: item.amount, owner_id: user.id },
     ])
 
+    const pendingRequest = groupSettlementRequests.find(
+      (request) =>
+        request.groupId === item.groupId &&
+        request.debtorId === item.debtorId &&
+        request.creditorId === item.creditorId
+    )
+
+    if (pendingRequest?.notificationId) {
+      await supabase.from("notifications").delete().eq("id", pendingRequest.notificationId)
+      await loadNotifications()
+    }
+
     showToast("Deuda saldada 👌")
+    triggerActionFlash("✅", "Cobro confirmado")
     await getExpenses()
     await getExpenseSplits()
   }
 
 
-  const settleFriendBalance = async (friendId: string, rawAmount: number) => {
+  const requestFriendSettlement = async (friendId: string, rawAmount: number) => {
     if (!user || !currentAppUser) return
 
     const settleAmount = Math.abs(Number(rawAmount.toFixed(2)))
     if (settleAmount <= 0) return
+
+    await createNotification({
+      userId: friendId,
+      title: "Solicitud de confirmación de pago",
+      message: buildSettlementRequestMessage({
+        scope: "friend",
+        debtorId: currentAppUser.id,
+        creditorId: friendId,
+        amount: settleAmount,
+      }),
+      type: "settlement_request",
+      ctaLabel: "Ver amigos",
+      ctaScreen: "amigos",
+    })
+
+    showToast("Solicitud enviada. Ahora quien cobra debe confirmar el pago.")
+    triggerActionFlash("🧾", "Confirmación solicitada")
+    await loadNotifications()
+  }
+
+  const confirmFriendSettlement = async (request: {
+    notificationId: string
+    debtorId: string
+    creditorId: string
+    amount: number
+  }) => {
+    if (!user || !currentAppUser) return
+
+    const canConfirm = isAdmin || currentAppUser.id === request.creditorId
+    if (!canConfirm) {
+      alert("Solo la persona que tiene que recibir el dinero puede confirmar el pago.")
+      return
+    }
 
     const { data: expenseData } = await supabase
       .from("expenses")
       .insert([
         {
           title: "Saldar deuda",
-          amount: settleAmount,
+          amount: request.amount,
           group_id: null,
-          paid_by: currentAppUser.id,
+          paid_by: request.debtorId,
           owner_id: user.id,
         },
       ])
@@ -1473,21 +1563,48 @@ export default function Home() {
     await supabase.from("expense_splits").insert([
       {
         expense_id: expenseId,
-        user_id: currentAppUser.id,
+        user_id: request.debtorId,
         amount: 0,
         owner_id: user.id,
       },
       {
         expense_id: expenseId,
-        user_id: friendId,
-        amount: settleAmount,
+        user_id: request.creditorId,
+        amount: request.amount,
         owner_id: user.id,
       },
     ])
 
-    showToast("Deuda con amigo saldada 👌")
+    await supabase.from("notifications").delete().eq("id", request.notificationId)
+    await loadNotifications()
+
+    showToast("Pago entre colegas confirmado 👌")
+    triggerActionFlash("🤝", "Pago confirmado")
     await getExpenses()
     await getExpenseSplits()
+  }
+
+  const requestGroupSettlement = async (item: BalanceItem) => {
+    if (!currentAppUser) return
+
+    await createNotification({
+      userId: item.creditorId,
+      title: "Solicitud de confirmación de pago",
+      message: buildSettlementRequestMessage({
+        scope: "group",
+        debtorId: item.debtorId,
+        creditorId: item.creditorId,
+        amount: item.amount,
+        groupId: item.groupId,
+      }),
+      type: "settlement_request",
+      ctaLabel: "Ver balances",
+      ctaScreen: "balances",
+    })
+
+    showToast("Solicitud enviada. Ahora quien cobra debe confirmar el pago.")
+    triggerActionFlash("🧾", "Confirmación solicitada")
+    await loadNotifications()
   }
 
   const buildGroupsWithMembers = async () => {
@@ -1745,6 +1862,64 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
     return maxFriendId && maxDebt > 0 ? { friendId: maxFriendId, amount: maxDebt } : null
   }, [friendBalances, currentAppUser])
 
+
+  const settlementRequestNotifications = useMemo(() => {
+    return notifications
+      .map((item) => {
+        const parsed = parseSettlementRequestMessage(item.message)
+        if (!parsed) return null
+        return {
+          notificationId: item.id,
+          title: item.title,
+          createdAt: item.createdAt,
+          ...parsed,
+        }
+      })
+      .filter(Boolean) as Array<{
+      notificationId: string
+      title: string
+      createdAt: string
+      scope: "friend" | "group"
+      groupId: string | null
+      debtorId: string
+      creditorId: string
+      amount: number
+    }>
+  }, [notifications])
+
+  const friendSettlementRequests = useMemo(() => {
+    return settlementRequestNotifications.filter((item) => item.scope === "friend")
+  }, [settlementRequestNotifications])
+
+  const groupSettlementRequests = useMemo(() => {
+    return settlementRequestNotifications.filter((item) => item.scope === "group")
+  }, [settlementRequestNotifications])
+
+  const monthlyPayersRanking = useMemo(() => {
+    const now = new Date()
+    const month = now.getMonth()
+    const year = now.getFullYear()
+    const map = new Map<string, number>()
+
+    visibleExpenses.forEach((expense) => {
+      if (!expense.created_at) return
+      const date = new Date(expense.created_at)
+      if (date.getMonth() !== month || date.getFullYear() !== year) return
+      map.set(expense.paid_by, (map.get(expense.paid_by) || 0) + Number(expense.amount || 0))
+    })
+
+    return Array.from(map.entries())
+      .map(([userId, total]) => ({ userId, total }))
+      .sort((a, b) => b.total - a.total)
+  }, [visibleExpenses])
+
+  const monthlyDebtorsRanking = useMemo(() => {
+    return friendBalances
+      .filter((item) => item.amount > 0)
+      .map((item) => ({ userId: item.friendId, total: item.amount }))
+      .sort((a, b) => b.total - a.total)
+  }, [friendBalances])
+
   const rankingPagadores = useMemo(() => {
     const map = new Map<string, number>()
     visibleExpenses.forEach((expense) => {
@@ -1868,6 +2043,7 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
     })
 
     showToast(copied ? "Recordatorio copiado 💸" : message)
+    triggerActionFlash("📣", "Reclamo listo")
   }
 
   const handleClaimGroupPayment = async (item: BalanceItem) => {
@@ -1902,6 +2078,7 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
     })
 
     showToast(copied ? "Reclamo copiado 📲" : message)
+    triggerActionFlash("📲", "Reclamo preparado")
   }
 
   const openFriendExpense = (friendId: string) => {
@@ -2011,6 +2188,12 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top,_#f8fafc,_#eef2ff_35%,_#ffffff_70%)] p-6">
       {toast && <div className="fixed bottom-6 right-6 z-[80] rounded-xl bg-black px-4 py-3 text-white shadow-2xl">{toast}</div>}
+      {actionFlash && (
+        <div className="pointer-events-none fixed right-6 top-24 z-[85] rounded-2xl bg-white px-5 py-4 text-black shadow-2xl">
+          <p className="text-2xl">{actionFlash.emoji}</p>
+          <p className="mt-1 text-sm font-semibold">{actionFlash.text}</p>
+        </div>
+      )}
 
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
         <div className="absolute left-[-60px] top-24 h-56 w-56 rounded-full bg-emerald-300/20 blur-3xl animate-pulse" />
@@ -2020,14 +2203,25 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
 
       <div className="mx-auto max-w-6xl relative">
         <div className="mb-5 flex justify-between items-center flex-wrap gap-3">
-          <div className="flex items-center gap-3">
-            <div className="grid h-12 w-12 place-items-center rounded-2xl bg-black text-2xl text-white shadow-lg">💸</div>
-            <div><p className="text-xs uppercase tracking-[0.25em] text-gray-500">TeDebo</p></div>
-          </div>
+          <button
+            onClick={() => setScreen("home")}
+            className="flex items-center gap-3 rounded-2xl transition-all hover:scale-[1.02] active:scale-[0.98]"
+            title="Volver a inicio"
+          >
+            {renderAvatar(
+              currentAppUser?.id,
+              currentAppUser?.name,
+              "h-12 w-12",
+              "text-sm",
+              "ring-2 ring-white shadow-lg"
+            )}
+            <div className="text-left">
+              <p className="text-xs uppercase tracking-[0.25em] text-gray-500">TeDebo</p>
+              <p className="text-xs text-gray-400">Inicio</p>
+            </div>
+          </button>
 
           <div className="flex gap-2 flex-wrap items-center">
-            <button onClick={() => setScreen("home")} className={`px-4 py-2 rounded-xl ${screen === "home" ? "bg-black text-white" : "bg-white border border-gray-200"}`}>Inicio</button>
-
             <div className="relative">
               <button onClick={() => setMenuOpen(!menuOpen)} className="px-4 py-2 rounded-xl bg-white border border-gray-200">☰</button>
               {menuOpen && (
@@ -2098,7 +2292,11 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
                             <div className="flex items-start justify-between gap-3">
                               <div>
                                 <p className="text-sm font-bold text-black">{item.title}</p>
-                                <p className="mt-1 text-xs leading-5 text-gray-600">{item.message}</p>
+                                <p className="mt-1 text-xs leading-5 text-gray-600">
+                                  {parseSettlementRequestMessage(item.message)
+                                    ? `Solicitud de confirmación por ${parseSettlementRequestMessage(item.message)?.amount.toFixed(2)}€${parseSettlementRequestMessage(item.message)?.groupId ? ` · ${getGroupName(parseSettlementRequestMessage(item.message)?.groupId || null)}` : ""}`
+                                    : item.message}
+                                </p>
                               </div>
                               {unread && <span className="mt-1 h-2 w-2 rounded-full bg-red-500" />}
                             </div>
@@ -2172,6 +2370,27 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
                     <div className="rounded-2xl bg-white/10 p-3">
                       <p className="text-xs uppercase tracking-wide text-white/60">Gastos</p>
                       <p className="mt-2 text-2xl font-black">{normalExpenses.length}</p>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur">
+                      <p className="text-xs uppercase tracking-wide text-white/60">Top pagador del mes</p>
+                      <p className="mt-2 text-lg font-black">
+                        {monthlyPayersRanking[0] ? getUserName(monthlyPayersRanking[0].userId) : "Sin datos"}
+                      </p>
+                      <p className="mt-1 text-sm text-white/70">
+                        {monthlyPayersRanking[0] ? `${monthlyPayersRanking[0].total.toFixed(2)}€ pagados` : "Todavía no hay pagos este mes"}
+                      </p>
+                    </div>
+                    <div className="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur">
+                      <p className="text-xs uppercase tracking-wide text-white/60">Moroso fuerte del mes</p>
+                      <p className="mt-2 text-lg font-black">
+                        {monthlyDebtorsRanking[0] ? getUserName(monthlyDebtorsRanking[0].userId) : "Sin datos"}
+                      </p>
+                      <p className="mt-1 text-sm text-white/70">
+                        {monthlyDebtorsRanking[0] ? `${monthlyDebtorsRanking[0].total.toFixed(2)}€ pendientes` : "Hoy la peña va fina"}
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -2397,20 +2616,41 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
 
                             {balance < 0 && (
                               <button
-                                onClick={() => settleFriendBalance(friend.id, balance)}
+                                onClick={() => requestFriendSettlement(friend.id, balance)}
                                 className="rounded-xl bg-emerald-600 px-4 py-3 text-white transition-all hover:scale-105 active:scale-95"
                               >
-                                Saldar deuda
+                                Solicitar confirmación
                               </button>
                             )}
 
                             {balance > 0 && (
-                              <button
-                                onClick={() => handleClaimFriendPayment(friend.id, balance)}
-                                className="rounded-xl bg-amber-500 px-4 py-3 text-white transition-all hover:scale-105 active:scale-95"
-                              >
-                                Reclamar pago
-                              </button>
+                              <>
+                                <button
+                                  onClick={() => handleClaimFriendPayment(friend.id, balance)}
+                                  className="rounded-xl bg-amber-500 px-4 py-3 text-white transition-all hover:scale-105 active:scale-95"
+                                >
+                                  Reclamar pago
+                                </button>
+
+                                {friendSettlementRequests.some(
+                                  (request) =>
+                                    request.debtorId === friend.id && request.creditorId === currentAppUser?.id
+                                ) && (
+                                  <button
+                                    onClick={() => {
+                                      const request = friendSettlementRequests.find(
+                                        (item) =>
+                                          item.debtorId === friend.id &&
+                                          item.creditorId === currentAppUser?.id
+                                      )
+                                      if (request) confirmFriendSettlement(request)
+                                    }}
+                                    className="rounded-xl bg-sky-600 px-4 py-3 text-white transition-all hover:scale-105 active:scale-95"
+                                  >
+                                    Confirmar pago
+                                  </button>
+                                )}
+                              </>
                             )}
 
                             <button onClick={() => openFriendExpense(friend.id)} className="rounded-xl bg-black px-4 py-3 text-white transition-all hover:scale-105 active:scale-95">
@@ -2720,7 +2960,22 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
                                           Reclamar
                                         </button>
                                       )}
-                                      <button onClick={() => settleBalance(item)} className="rounded-xl bg-black px-4 py-3 text-white">Saldar</button>
+                                      {currentAppUser?.id === item.debtorId && !isAdmin ? (
+                                        <button onClick={() => requestGroupSettlement(item)} className="rounded-xl bg-emerald-600 px-4 py-3 text-white">
+                                          Solicitar confirmación
+                                        </button>
+                                      ) : (
+                                        <button onClick={() => settleBalance(item)} className="rounded-xl bg-black px-4 py-3 text-white">
+                                          {groupSettlementRequests.some(
+                                            (request) =>
+                                              request.groupId === item.groupId &&
+                                              request.debtorId === item.debtorId &&
+                                              request.creditorId === item.creditorId
+                                          )
+                                            ? "Confirmar cobro"
+                                            : "Saldar"}
+                                        </button>
+                                      )}
                                     </div>
                                   </div>
 
@@ -3080,7 +3335,67 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
             )}
 
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              
+            <div className="grid gap-4 md:grid-cols-2">
               <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-lg font-bold text-black">Ranking del mes</h3>
+                    <p className="text-sm text-gray-500">Quién más está pagando este mes.</p>
+                  </div>
+                  <span className="rounded-full bg-yellow-100 px-3 py-1 text-xs font-semibold text-yellow-700">🏆 Mes</span>
+                </div>
+
+                <div className="mt-4 space-y-3">
+                  {monthlyPayersRanking.slice(0, 3).map((item, index) => (
+                    <div key={item.userId} className="flex items-center justify-between rounded-2xl bg-gray-50 p-4">
+                      <div className="flex items-center gap-3">
+                        {renderAvatar(item.userId, getUserName(item.userId), "h-10 w-10", "text-sm")}
+                        <div>
+                          <p className="font-semibold text-black">{index + 1}. {getUserName(item.userId)}</p>
+                          <p className="text-xs text-gray-500">Pagador del mes</p>
+                        </div>
+                      </div>
+                      <span className="rounded-full bg-white px-3 py-1 text-sm font-bold text-black">
+                        {item.total.toFixed(2)}€
+                      </span>
+                    </div>
+                  ))}
+                  {monthlyPayersRanking.length === 0 && (
+                    <p className="text-sm text-gray-500">Todavía no hay pagos este mes.</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-lg font-bold text-black">Confirmaciones pendientes</h3>
+                    <p className="text-sm text-gray-500">Pagos que están esperando tu visto bueno.</p>
+                  </div>
+                  <span className="rounded-full bg-sky-100 px-3 py-1 text-xs font-semibold text-sky-700">🧾 Pago</span>
+                </div>
+
+                <div className="mt-4 space-y-3">
+                  {[...friendSettlementRequests, ...groupSettlementRequests]
+                    .filter((request) => request.creditorId === currentAppUser?.id)
+                    .slice(0, 4)
+                    .map((request) => (
+                      <div key={request.notificationId} className="rounded-2xl bg-gray-50 p-4">
+                        <p className="font-semibold text-black">{getUserName(request.debtorId)} dice que ya pagó</p>
+                        <p className="mt-1 text-sm text-gray-600">
+                          {request.amount.toFixed(2)}€ {request.groupId ? `· ${getGroupName(request.groupId)}` : "· gasto directo"}
+                        </p>
+                      </div>
+                    ))}
+                  {[...friendSettlementRequests, ...groupSettlementRequests].filter(
+                    (request) => request.creditorId === currentAppUser?.id
+                  ).length === 0 && <p className="text-sm text-gray-500">No tienes confirmaciones pendientes.</p>}
+                </div>
+              </div>
+            </div>
+
+<div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
                 <p className="text-xs uppercase tracking-wide text-gray-500">Total pagado</p>
                 <p className="mt-2 text-3xl font-black text-black">{totalPaid.toFixed(2)}€</p>
                 <p className="mt-1 text-xs text-gray-500">Lo que has adelantado tú</p>
