@@ -79,7 +79,7 @@ type Friendship = {
 
 type SplitMode = "equal" | "custom"
 type ExpenseMode = "group" | "friend"
-type Screen = "home" | "amigos" | "gastos" | "balances" | "historial" | "moroso"
+type Screen = "home" | "amigos" | "gastos" | "balances" | "historial" | "moroso" | "perfil"
 type TrustLevel = "top" | "good" | "meh" | "dodgy" | "chaos"
 type GameId = "moroso" | "reflejos" | "memoria" | "excusas" | "monedas"
 
@@ -139,10 +139,7 @@ const TRUST_CONTENT: Record<
   },
 }
 
-const GAME_INFO: Record<
-  GameId,
-  { title: string; icon: string; subtitle: string; description: string }
-> = {
+const GAME_INFO: Record<GameId, { title: string; icon: string; subtitle: string; description: string }> = {
   moroso: {
     title: "A por el moroso",
     icon: "💸",
@@ -217,7 +214,7 @@ export default function Home() {
   const [password, setPassword] = useState("")
   const [screen, setScreen] = useState<Screen>("home")
   const [menuOpen, setMenuOpen] = useState(false)
-  const menuItems: Screen[] = ["amigos", "gastos", "balances", "historial", "moroso"]
+  const menuItems: Screen[] = ["amigos", "gastos", "balances", "historial", "moroso", "perfil"]
 
   const [loading, setLoading] = useState(false)
   const [nombre, setNombre] = useState("")
@@ -225,6 +222,9 @@ export default function Home() {
   const [authMode, setAuthMode] = useState<"login" | "register">("login")
   const [tagModal, setTagModal] = useState<TagInfo | null>(null)
   const [toast, setToast] = useState("")
+  const [isEditingProfile, setIsEditingProfile] = useState(false)
+  const [profileName, setProfileName] = useState("")
+  const [profileSaving, setProfileSaving] = useState(false)
 
   const [showGuide, setShowGuide] = useState(true)
   const [showGamesMenu, setShowGamesMenu] = useState(false)
@@ -241,21 +241,14 @@ export default function Home() {
   const [coinBursts, setCoinBursts] = useState<{ id: number; x: number; y: number; value: number }[]>([])
   const [gameRound, setGameRound] = useState(0)
 
-  const [reflexTiles, setReflexTiles] = useState<
-    { id: number; kind: "money" | "trap"; value: number }[]
-  >([])
-
+  const [reflexTiles, setReflexTiles] = useState<{ id: number; kind: "money" | "trap"; value: number }[]>([])
   const [memorySequence, setMemorySequence] = useState<number[]>([])
   const [memoryInput, setMemoryInput] = useState<number[]>([])
   const [memoryShowing, setMemoryShowing] = useState(false)
   const [memoryFlash, setMemoryFlash] = useState<number | null>(null)
-
   const [excuseOptions, setExcuseOptions] = useState<string[]>([])
   const [excuseCorrectIndex, setExcuseCorrectIndex] = useState(0)
-
-  const [coinRainItems, setCoinRainItems] = useState<
-    { id: number; kind: "coin" | "trap"; left: number; top: number; value: number }[]
-  >([])
+  const [coinRainItems, setCoinRainItems] = useState<{ id: number; kind: "coin" | "trap"; left: number; top: number; value: number }[]>([])
 
   const showToast = (message: string) => {
     setToast(message)
@@ -285,12 +278,10 @@ export default function Home() {
 
   useEffect(() => {
     if (!user) return
-
     const run = async () => {
       await ensureCurrentAppUserProfile()
       await loadAll()
     }
-
     run()
   }, [user])
 
@@ -303,6 +294,11 @@ export default function Home() {
     if (!currentAppUser) return
     setPaidBy(currentAppUser.id)
   }, [currentAppUser])
+
+  useEffect(() => {
+    setProfileName(currentAppUser?.name || "")
+  }, [currentAppUser])
+
 
   const ensureCurrentAppUserProfile = async () => {
     if (!user) return
@@ -356,7 +352,6 @@ export default function Home() {
     const { data } = await supabase
       .from("groups")
       .select("*")
-      .or(`owner_id.eq.${user.id},owner_id.is.null`)
       .order("created_at", { ascending: false })
     if (data) setGroups(data as Group[])
   }
@@ -366,7 +361,6 @@ export default function Home() {
     const { data } = await supabase
       .from("group_members")
       .select("*")
-      .or(`owner_id.eq.${user.id},owner_id.is.null`)
       .order("created_at", { ascending: false })
     if (data) setGroupMembers(data as GroupMember[])
   }
@@ -376,7 +370,6 @@ export default function Home() {
     const { data } = await supabase
       .from("expenses")
       .select("*")
-      .or(`owner_id.eq.${user.id},owner_id.is.null`)
       .order("created_at", { ascending: false })
     if (data) setExpenses(data as Expense[])
   }
@@ -386,7 +379,6 @@ export default function Home() {
     const { data } = await supabase
       .from("expense_splits")
       .select("*")
-      .or(`owner_id.eq.${user.id},owner_id.is.null`)
     if (data) setExpenseSplits(data as ExpenseSplit[])
   }
 
@@ -396,7 +388,7 @@ export default function Home() {
       .from("friend_invitations")
       .select("*")
       .eq("email", user.email.toLowerCase())
-      .in("status", ["pending", "accepted"])
+      .eq("status", "pending")
       .order("created_at", { ascending: false })
     if (data) setReceivedInvitations(data as FriendInvitation[])
   }
@@ -407,6 +399,7 @@ export default function Home() {
       .from("friend_invitations")
       .select("*")
       .eq("invited_by", user.id)
+      .eq("status", "pending")
       .order("created_at", { ascending: false })
     if (data) setSentInvitations(data as FriendInvitation[])
   }
@@ -417,11 +410,50 @@ export default function Home() {
       .from("friendships")
       .select("*")
       .eq("user_id", currentAppUser.id)
+      .eq("status", "accepted")
     if (data) setFriendships(data as Friendship[])
   }
 
+  const friendList = useMemo(() => {
+    const friendIds = new Set(friendships.filter((f) => f.status === "accepted").map((f) => f.friend_id))
+    const rawFriends = users.filter((u) => friendIds.has(u.id))
+    const uniqueMap = new Map<string, User>()
+    rawFriends.forEach((friend) => {
+      if (!uniqueMap.has(friend.id)) uniqueMap.set(friend.id, friend)
+    })
+    return Array.from(uniqueMap.values())
+  }, [users, friendships])
+
+  const saveProfile = async () => {
+    if (!currentAppUser) return
+
+    const cleanName = profileName.trim()
+    if (!cleanName) {
+      alert("Introduce un nombre válido")
+      return
+    }
+
+    setProfileSaving(true)
+
+    const { error } = await supabase
+      .from("users")
+      .update({ name: cleanName })
+      .eq("id", currentAppUser.id)
+
+    setProfileSaving(false)
+
+    if (error) {
+      alert("Error guardando el perfil")
+      return
+    }
+
+    showToast("Perfil actualizado ✅")
+    setIsEditingProfile(false)
+    await getUsers()
+  }
+
   const addUser = async () => {
-    if (!name.trim() || !user) {
+    if (!name.trim() || !user || !currentAppUser) {
       alert("Introduce un correo")
       return
     }
@@ -438,7 +470,29 @@ export default function Home() {
       return
     }
 
-    const { data: existingInvitation } = await supabase
+    const { data: existingUserByEmail, error: userLookupError } = await supabase
+      .from("users")
+      .select("*")
+      .eq("email", normalizedEmail)
+      .maybeSingle()
+
+    if (userLookupError) {
+      alert("Error comprobando el correo")
+      return
+    }
+
+    if (existingUserByEmail) {
+      const alreadyFriend = friendships.some(
+        (f) => f.friend_id === existingUserByEmail.id && f.status === "accepted"
+      )
+
+      if (alreadyFriend) {
+        alert("Ese colega ya está en tu lista de amigos")
+        return
+      }
+    }
+
+    const { data: pendingInvitation } = await supabase
       .from("friend_invitations")
       .select("id")
       .eq("email", normalizedEmail)
@@ -446,7 +500,7 @@ export default function Home() {
       .eq("status", "pending")
       .maybeSingle()
 
-    if (existingInvitation) {
+    if (pendingInvitation) {
       alert("Ese correo ya tiene una invitación pendiente")
       return
     }
@@ -483,42 +537,65 @@ export default function Home() {
   const acceptInvitation = async (invitation: FriendInvitation) => {
     if (!user || !currentAppUser) return
 
-    const { data: senderAppUser } = await supabase
+    const { data: senderAppUser, error: senderError } = await supabase
       .from("users")
       .select("*")
       .eq("auth_user_id", invitation.invited_by)
       .single()
 
-    if (!senderAppUser) {
+    if (senderError || !senderAppUser) {
       alert("No se encontró al usuario que envió la invitación")
       return
     }
 
-    const alreadyFriend = friendships.some((f) => f.friend_id === senderAppUser.id)
+    const alreadyFriend = friendships.some(
+      (f) => f.friend_id === senderAppUser.id && f.status === "accepted"
+    )
 
     if (!alreadyFriend) {
-      const { error: friendshipError } = await supabase.from("friendships").insert([
-        {
-          user_id: currentAppUser.id,
-          friend_id: senderAppUser.id,
-          status: "accepted",
-        },
-        {
-          user_id: senderAppUser.id,
-          friend_id: currentAppUser.id,
-          status: "accepted",
-        },
-      ])
+      const { data: existingFriendship } = await supabase
+        .from("friendships")
+        .select("*")
+        .eq("user_id", currentAppUser.id)
+        .eq("friend_id", senderAppUser.id)
+        .maybeSingle()
 
-      if (friendshipError) {
-        alert("Error creando la amistad")
-        return
+      if (!existingFriendship) {
+        const { error: friendshipError } = await supabase.from("friendships").insert([
+          {
+            user_id: currentAppUser.id,
+            friend_id: senderAppUser.id,
+            status: "accepted",
+          },
+          {
+            user_id: senderAppUser.id,
+            friend_id: currentAppUser.id,
+            status: "accepted",
+          },
+        ])
+
+        if (friendshipError) {
+          alert("Error creando la amistad")
+          return
+        }
       }
     }
 
-    await supabase.from("friend_invitations").update({ status: "accepted" }).eq("id", invitation.id)
-    showToast("Amigo añadido correctamente")
+    await supabase
+      .from("friend_invitations")
+      .delete()
+      .eq("id", invitation.id)
+
+    await supabase
+      .from("friend_invitations")
+      .delete()
+      .eq("invited_by", senderAppUser.auth_user_id)
+      .eq("email", user.email?.toLowerCase() || "")
+      .eq("status", "pending")
+
+    showToast(alreadyFriend ? "Ya erais amigos" : "Amigo añadido correctamente")
     await getReceivedInvitations()
+    await getSentInvitations()
     await getFriendships()
   }
 
@@ -527,10 +604,12 @@ export default function Home() {
 
     const { data: createdGroup } = await supabase
       .from("groups")
-      .insert({
-        name: groupName.trim(),
-        owner_id: user.id,
-      })
+      .insert([
+        {
+          name: groupName.trim(),
+          owner_id: user.id,
+        },
+      ])
       .select()
       .single()
 
@@ -591,11 +670,6 @@ export default function Home() {
       .filter(Boolean) as User[]
   }, [expenseGroupId, groupMembers, users])
 
-  const friendList = useMemo(() => {
-    const friendIds = new Set(friendships.map((f) => f.friend_id))
-    return users.filter((u) => friendIds.has(u.id))
-  }, [users, friendships])
-
   const friendParticipants = useMemo(() => {
     if (!currentAppUser || !selectedFriendId) return []
     const friend = users.find((u) => u.id === selectedFriendId)
@@ -603,6 +677,41 @@ export default function Home() {
   }, [currentAppUser, selectedFriendId, users])
 
   const expenseParticipants = expenseMode === "group" ? membersOfSelectedExpenseGroup : friendParticipants
+
+  const visibleExpenseIds = useMemo(() => {
+    if (!currentAppUser) return new Set<string>()
+    const ids = new Set<string>()
+
+    expenseSplits.forEach((split) => {
+      if (split.user_id === currentAppUser.id) ids.add(split.expense_id)
+    })
+
+    expenses.forEach((expense) => {
+      if (expense.paid_by === currentAppUser.id) ids.add(expense.id)
+    })
+
+    const myGroupIds = new Set(
+      groupMembers
+        .filter((member) => member.user_id === currentAppUser.id)
+        .map((member) => member.group_id)
+    )
+
+    expenses.forEach((expense) => {
+      if (expense.group_id && myGroupIds.has(expense.group_id)) {
+        ids.add(expense.id)
+      }
+    })
+
+    return ids
+  }, [currentAppUser, expenseSplits, expenses, groupMembers])
+
+  const visibleExpenses = useMemo(() => {
+    return expenses.filter((expense) => visibleExpenseIds.has(expense.id))
+  }, [expenses, visibleExpenseIds])
+
+  const visibleExpenseSplits = useMemo(() => {
+    return expenseSplits.filter((split) => visibleExpenseIds.has(split.expense_id))
+  }, [expenseSplits, visibleExpenseIds])
 
   const getUserName = (userId: string) => users.find((u) => u.id === userId)?.name || "Usuario"
 
@@ -623,7 +732,7 @@ export default function Home() {
   }
 
   const getExpensePeopleSummary = (expenseId: string) => {
-    const splits = expenseSplits.filter((split) => split.expense_id === expenseId)
+    const splits = visibleExpenseSplits.filter((split) => split.expense_id === expenseId)
     if (splits.length === 0) return "Sin reparto guardado"
     return splits
       .map((split) => `${getUserName(split.user_id)}: ${Number(split.amount).toFixed(2)}€`)
@@ -672,20 +781,14 @@ export default function Home() {
     setCoinBursts([])
     setGameRound((r) => r + 1)
 
-    if (game === "moroso") {
-      moveMoroso()
-    }
-
+    if (game === "moroso") moveMoroso()
     if (game === "reflejos") {
-      setReflexTiles(
-        Array.from({ length: 9 }, (_, index) => ({
-          id: index,
-          kind: Math.random() > 0.7 ? "trap" : "money",
-          value: Math.random() > 0.7 ? -4 : Math.floor(Math.random() * 5) + 3,
-        }))
-      )
+      setReflexTiles(Array.from({ length: 9 }, (_, index) => ({
+        id: index,
+        kind: Math.random() > 0.7 ? "trap" : "money",
+        value: Math.random() > 0.7 ? -4 : Math.floor(Math.random() * 5) + 3,
+      })))
     }
-
     if (game === "memoria") {
       const sequence = Array.from({ length: 4 }, () => Math.floor(Math.random() * 4))
       setMemorySequence(sequence)
@@ -693,14 +796,8 @@ export default function Home() {
       setMemoryShowing(true)
       playMemorySequence(sequence)
     }
-
-    if (game === "excusas") {
-      loadExcuseRound()
-    }
-
-    if (game === "monedas") {
-      setCoinRainItems([])
-    }
+    if (game === "excusas") loadExcuseRound()
+    if (game === "monedas") setCoinRainItems([])
   }
 
   const closeGame = () => {
@@ -746,7 +843,6 @@ export default function Home() {
 
   const hitReflexTile = (tileIndex: number) => {
     if (!gameRunning) return
-
     const tile = reflexTiles[tileIndex]
     if (!tile) return
 
@@ -812,22 +908,8 @@ export default function Home() {
   }
 
   const loadExcuseRound = () => {
-    const goodPayments = [
-      "Te hago Bizum ahora",
-      "Te paso el dinero ya",
-      "Listo, te acabo de pagar",
-      "Te lo mando en este momento",
-    ]
-    const excuses = [
-      "No me deja la app",
-      "Luego te paso",
-      "Estoy sin batería",
-      "Te pago mañana seguro",
-      "Ahora voy fatal",
-      "No tengo cobertura",
-      "Se me olvidó",
-      "Luego luego",
-    ]
+    const goodPayments = ["Te hago Bizum ahora", "Te paso el dinero ya", "Listo, te acabo de pagar", "Te lo mando en este momento"]
+    const excuses = ["No me deja la app", "Luego te paso", "Estoy sin batería", "Te pago mañana seguro", "Ahora voy fatal", "No tengo cobertura", "Se me olvidó", "Luego luego"]
 
     const correct = goodPayments[Math.floor(Math.random() * goodPayments.length)]
     const wrong1 = excuses[Math.floor(Math.random() * excuses.length)]
@@ -868,11 +950,9 @@ export default function Home() {
     if (!gameRunning) return
     if (gameTimeLeft <= 0) {
       setGameRunning(false)
-
       if (gameCash > 45) setGameMessage("🔥 Le has reventado el bolsillo.")
       else if (gameCash > 25) setGameMessage("😤 Algo has rascado, pero sigue tensito.")
       else setGameMessage("😂 Hoy se te escapó vivo.")
-
       return
     }
 
@@ -895,13 +975,11 @@ export default function Home() {
   useEffect(() => {
     if (!gameRunning || activeGame !== "reflejos") return
     const interval = setInterval(() => {
-      setReflexTiles(
-        Array.from({ length: 9 }, (_, index) => ({
-          id: index,
-          kind: Math.random() > 0.75 ? "trap" : "money",
-          value: Math.random() > 0.75 ? -4 : Math.floor(Math.random() * 5) + 2,
-        }))
-      )
+      setReflexTiles(Array.from({ length: 9 }, (_, index) => ({
+        id: index,
+        kind: Math.random() > 0.75 ? "trap" : "money",
+        value: Math.random() > 0.75 ? -4 : Math.floor(Math.random() * 5) + 2,
+      })))
     }, 900)
     return () => clearInterval(interval)
   }, [gameRunning, activeGame])
@@ -1041,20 +1119,56 @@ export default function Home() {
     await getExpenseSplits()
   }
 
+
+  const settleFriendBalance = async (friendId: string, rawAmount: number) => {
+    if (!user || !currentAppUser) return
+
+    const settleAmount = Math.abs(Number(rawAmount.toFixed(2)))
+    if (settleAmount <= 0) return
+
+    const { data: expenseData } = await supabase
+      .from("expenses")
+      .insert([
+        {
+          title: "Saldar deuda",
+          amount: settleAmount,
+          group_id: null,
+          paid_by: currentAppUser.id,
+          owner_id: user.id,
+        },
+      ])
+      .select()
+
+    if (!expenseData || expenseData.length === 0) return
+
+    const expenseId = expenseData[0].id
+
+    await supabase.from("expense_splits").insert([
+      {
+        expense_id: expenseId,
+        user_id: currentAppUser.id,
+        amount: 0,
+        owner_id: user.id,
+      },
+      {
+        expense_id: expenseId,
+        user_id: friendId,
+        amount: settleAmount,
+        owner_id: user.id,
+      },
+    ])
+
+    showToast("Deuda con amigo saldada 👌")
+    await getExpenses()
+    await getExpenseSplits()
+  }
+
   const buildGroupsWithMembers = async () => {
     if (!user) return
 
-    const { data: groupsData } = await supabase
-      .from("groups")
-      .select("*")
-      .or(`owner_id.eq.${user.id},owner_id.is.null`)
-      .order("created_at", { ascending: false })
-
+    const { data: groupsData } = await supabase.from("groups").select("*").order("created_at", { ascending: false })
     const { data: usersData } = await supabase.from("users").select("*")
-    const { data: membersData } = await supabase
-      .from("group_members")
-      .select("*")
-      .or(`owner_id.eq.${user.id},owner_id.is.null`)
+    const { data: membersData } = await supabase.from("group_members").select("*")
 
     if (!groupsData || !usersData || !membersData) return
 
@@ -1064,10 +1178,7 @@ export default function Home() {
         .map((item) => (usersData as User[]).find((userItem) => userItem.id === item.user_id))
         .filter(Boolean) as User[]
 
-      return {
-        ...group,
-        members: membersOfGroup,
-      }
+      return { ...group, members: membersOfGroup }
     })
 
     setGroupsWithMembers(result)
@@ -1082,11 +1193,11 @@ export default function Home() {
     const resultByGroup: Record<string, BalanceItem[]> = {}
 
     for (const group of groups) {
-      const groupExpenses = expenses.filter((expense) => expense.group_id === group.id)
+      const groupExpenses = visibleExpenses.filter((expense) => expense.group_id === group.id)
       const map = new Map<string, number>()
 
       for (const expense of groupExpenses) {
-        const splitsOfExpense = expenseSplits.filter((split) => split.expense_id === expense.id)
+        const splitsOfExpense = visibleExpenseSplits.filter((split) => split.expense_id === expense.id)
 
         for (const split of splitsOfExpense) {
           if (split.user_id === expense.paid_by) continue
@@ -1098,9 +1209,8 @@ export default function Home() {
             const current = map.get(reverseKey)!
             const newValue = current - split.amount
 
-            if (newValue > 0) {
-              map.set(reverseKey, newValue)
-            } else {
+            if (newValue > 0) map.set(reverseKey, newValue)
+            else {
               map.delete(reverseKey)
               if (newValue < 0) map.set(key, Math.abs(newValue))
             }
@@ -1120,7 +1230,7 @@ export default function Home() {
     }
 
     return resultByGroup
-  }, [groups, expenses, expenseSplits])
+  }, [groups, visibleExpenses, visibleExpenseSplits])
 
   const morosoPorGrupo = useMemo(() => {
     const result: Record<string, { userId: string; amount: number } | null> = {}
@@ -1151,11 +1261,10 @@ export default function Home() {
 
   const friendBalances = useMemo(() => {
     if (!currentAppUser) return []
-
     const map = new Map<string, number>()
 
-    for (const expense of expenses) {
-      const splitsOfExpense = expenseSplits.filter((split) => split.expense_id === expense.id)
+    for (const expense of visibleExpenses) {
+      const splitsOfExpense = visibleExpenseSplits.filter((split) => split.expense_id === expense.id)
 
       for (const split of splitsOfExpense) {
         if (split.user_id === expense.paid_by) continue
@@ -1186,10 +1295,10 @@ export default function Home() {
         amount: Number(amountValue.toFixed(2)),
       }))
       .sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount))
-  }, [currentAppUser, expenses, expenseSplits, groupMembers])
+  }, [currentAppUser, visibleExpenses, visibleExpenseSplits, groupMembers])
 
-  const normalExpenses = useMemo(() => expenses.filter((expense) => expense.title !== "Saldar deuda"), [expenses])
-  const settledExpenses = useMemo(() => expenses.filter((expense) => expense.title === "Saldar deuda"), [expenses])
+  const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense.title !== "Saldar deuda"), [visibleExpenses])
+  const settledExpenses = useMemo(() => visibleExpenses.filter((expense) => expense.title === "Saldar deuda"), [visibleExpenses])
 
   const moroso = useMemo(() => {
     if (!currentAppUser) return null
@@ -1208,17 +1317,77 @@ export default function Home() {
 
   const rankingPagadores = useMemo(() => {
     const map = new Map<string, number>()
-    expenses.forEach((expense) => {
+    visibleExpenses.forEach((expense) => {
       map.set(expense.paid_by, (map.get(expense.paid_by) || 0) + expense.amount)
     })
     return Array.from(map.entries())
       .map(([userId, total]) => ({ userId, total }))
       .sort((a, b) => b.total - a.total)
-  }, [expenses])
+  }, [visibleExpenses])
+
+  const totalPaid = useMemo(() => {
+    if (!currentAppUser) return 0
+    return visibleExpenses
+      .filter((expense) => expense.paid_by === currentAppUser.id)
+      .reduce((sum, expense) => sum + Number(expense.amount || 0), 0)
+  }, [currentAppUser, visibleExpenses])
+
+  const totalYouAreOwed = useMemo(() => {
+    return friendBalances
+      .filter((item) => item.amount > 0)
+      .reduce((sum, item) => sum + item.amount, 0)
+  }, [friendBalances])
+
+  const totalYouOwe = useMemo(() => {
+    return Math.abs(
+      friendBalances
+        .filter((item) => item.amount < 0)
+        .reduce((sum, item) => sum + item.amount, 0)
+    )
+  }, [friendBalances])
+
+  const netBalance = useMemo(() => totalYouAreOwed - totalYouOwe, [totalYouAreOwed, totalYouOwe])
+
+  const myGroupsCount = useMemo(() => {
+    if (!currentAppUser) return 0
+    return new Set(
+      groupMembers.filter((item) => item.user_id === currentAppUser.id).map((item) => item.group_id)
+    ).size
+  }, [currentAppUser, groupMembers])
+
+  const myCreatedExpensesCount = useMemo(() => {
+    if (!currentAppUser) return 0
+    return visibleExpenses.filter((expense) => expense.paid_by === currentAppUser.id).length
+  }, [currentAppUser, visibleExpenses])
+
+  const recentActivity = useMemo(() => {
+    return [...visibleExpenses].slice(0, 5)
+  }, [visibleExpenses])
+
+  const topSharedFriend = useMemo(() => {
+    const counts = new Map<string, number>()
+
+    visibleExpenseSplits.forEach((split) => {
+      if (!currentAppUser) return
+      if (split.user_id === currentAppUser.id) return
+      counts.set(split.user_id, (counts.get(split.user_id) || 0) + 1)
+    })
+
+    let topId: string | null = null
+    let topCount = 0
+
+    counts.forEach((count, friendId) => {
+      if (count > topCount) {
+        topCount = count
+        topId = friendId
+      }
+    })
+
+    return topId ? { friendId: topId, count: topCount } : null
+  }, [visibleExpenseSplits, currentAppUser])
 
   const getTrustInfo = (amount: number, userId: string): TagInfo => {
     let level: TrustLevel = "top"
-
     if (amount > 150) level = "chaos"
     else if (amount > 80) level = "dodgy"
     else if (amount > 30) level = "meh"
@@ -1284,18 +1453,8 @@ export default function Home() {
 
           {authMode === "register" && (
             <div className="flex flex-col">
-              <input
-                className="border border-gray-300 p-3 mb-3 w-full rounded-lg"
-                placeholder="Nombre"
-                value={nombre}
-                onChange={(e) => setNombre(e.target.value)}
-              />
-              <input
-                className="border border-gray-300 p-3 mb-3 w-full rounded-lg"
-                placeholder="Apellidos"
-                value={apellidos}
-                onChange={(e) => setApellidos(e.target.value)}
-              />
+              <input className="border border-gray-300 p-3 mb-3 w-full rounded-lg" placeholder="Nombre" value={nombre} onChange={(e) => setNombre(e.target.value)} />
+              <input className="border border-gray-300 p-3 mb-3 w-full rounded-lg" placeholder="Apellidos" value={apellidos} onChange={(e) => setApellidos(e.target.value)} />
             </div>
           )}
 
@@ -1351,11 +1510,7 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top,_#f8fafc,_#eef2ff_35%,_#ffffff_70%)] p-6">
-      {toast && (
-        <div className="fixed bottom-6 right-6 z-[80] rounded-xl bg-black px-4 py-3 text-white shadow-2xl">
-          {toast}
-        </div>
-      )}
+      {toast && <div className="fixed bottom-6 right-6 z-[80] rounded-xl bg-black px-4 py-3 text-white shadow-2xl">{toast}</div>}
 
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
         <div className="absolute left-[-60px] top-24 h-56 w-56 rounded-full bg-emerald-300/20 blur-3xl animate-pulse" />
@@ -1367,27 +1522,14 @@ export default function Home() {
         <div className="mb-5 flex justify-between items-center flex-wrap gap-3">
           <div className="flex items-center gap-3">
             <div className="grid h-12 w-12 place-items-center rounded-2xl bg-black text-2xl text-white shadow-lg">💸</div>
-            <div>
-              <p className="text-xs uppercase tracking-[0.25em] text-gray-500">TeDebo</p>
-            </div>
+            <div><p className="text-xs uppercase tracking-[0.25em] text-gray-500">TeDebo</p></div>
           </div>
 
           <div className="flex gap-2 flex-wrap items-center">
-            <button
-              onClick={() => setScreen("home")}
-              className={`px-4 py-2 rounded-xl ${screen === "home" ? "bg-black text-white" : "bg-white border border-gray-200"}`}
-            >
-              Inicio
-            </button>
+            <button onClick={() => setScreen("home")} className={`px-4 py-2 rounded-xl ${screen === "home" ? "bg-black text-white" : "bg-white border border-gray-200"}`}>Inicio</button>
 
             <div className="relative">
-              <button
-                onClick={() => setMenuOpen(!menuOpen)}
-                className="px-4 py-2 rounded-xl bg-white border border-gray-200"
-              >
-                ☰
-              </button>
-
+              <button onClick={() => setMenuOpen(!menuOpen)} className="px-4 py-2 rounded-xl bg-white border border-gray-200">☰</button>
               {menuOpen && (
                 <div className="absolute right-0 mt-2 w-40 bg-white border rounded-xl shadow-lg z-50">
                   {menuItems.map((item) => (
@@ -1468,10 +1610,7 @@ export default function Home() {
                     <div className="absolute inset-0 rounded-[32px] bg-white/10 blur-2xl" />
                     <div className="absolute left-1/2 top-1/2 grid h-60 w-60 -translate-x-1/2 -translate-y-1/2 grid-cols-3 gap-2 rounded-[28px] border border-white/15 bg-black/20 p-4 shadow-2xl backdrop-blur-md animate-[floatCube_6s_ease-in-out_infinite]">
                       {["😏", "💸", "🕶️", "🪙", "🤑", "💰", "😈", "🏦", "🫰"].map((icon, index) => (
-                        <div
-                          key={index}
-                          className="flex items-center justify-center rounded-xl border border-white/10 bg-white/10 text-2xl shadow-inner backdrop-blur-sm"
-                        >
+                        <div key={index} className="flex items-center justify-center rounded-xl border border-white/10 bg-white/10 text-2xl shadow-inner backdrop-blur-sm">
                           {icon}
                         </div>
                       ))}
@@ -1488,13 +1627,7 @@ export default function Home() {
                     <h3 className="text-xl font-black text-black">Cómo funciona TeDebo</h3>
                     <p className="mt-1 text-sm text-gray-500">Guía rápida para que cualquiera entienda la app en 10 segundos.</p>
                   </div>
-
-                  <button
-                    onClick={() => setShowGuide(false)}
-                    className="rounded-xl bg-black px-4 py-2 text-sm font-semibold text-white"
-                  >
-                    Cerrar
-                  </button>
+                  <button onClick={() => setShowGuide(false)} className="rounded-xl bg-black px-4 py-2 text-sm font-semibold text-white">Cerrar</button>
                 </div>
 
                 <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -1517,9 +1650,7 @@ export default function Home() {
             <div className="rounded-3xl border border-emerald-200 bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-500 p-6 text-white shadow-2xl">
               <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                 <div className="max-w-2xl">
-                  <div className="inline-flex w-fit items-center rounded-full bg-white/15 px-3 py-1 text-sm font-semibold backdrop-blur">
-                    📩 Trae a tu gente
-                  </div>
+                  <div className="inline-flex w-fit items-center rounded-full bg-white/15 px-3 py-1 text-sm font-semibold backdrop-blur">📩 Trae a tu gente</div>
                   <h3 className="mt-3 text-2xl font-black sm:text-3xl">
                     Trae a tus colegas y empieza a repartir cuentas como un jefe 😈
                   </h3>
@@ -1537,16 +1668,11 @@ export default function Home() {
                       onChange={(e) => setName(e.target.value)}
                       className="w-full rounded-xl border border-white/20 bg-white/90 p-3 text-black outline-none"
                     />
-                    <button
-                      onClick={addUser}
-                      className="rounded-xl bg-black px-5 py-3 font-semibold text-white transition-all hover:scale-105 active:scale-95"
-                    >
+                    <button onClick={addUser} className="rounded-xl bg-black px-5 py-3 font-semibold text-white transition-all hover:scale-105 active:scale-95">
                       Enviar invitación
                     </button>
                   </div>
-                  <p className="mt-3 text-xs text-white/80">
-                    Importante: tu colega debe registrarse o iniciar sesión con ese mismo correo.
-                  </p>
+                  <p className="mt-3 text-xs text-white/80">Importante: tu colega debe registrarse o iniciar sesión con ese mismo correo.</p>
                 </div>
               </div>
             </div>
@@ -1556,15 +1682,10 @@ export default function Home() {
                 <div className="mb-3 flex items-center justify-between">
                   <div>
                     <h3 className="text-lg font-bold text-black">Centro de minijuegos</h3>
-                    <p className="text-sm text-gray-500">
-                      Juega en pantalla completa y métele presión al drama financiero.
-                    </p>
+                    <p className="text-sm text-gray-500">Juega en pantalla completa y métele presión al drama financiero.</p>
                   </div>
 
-                  <button
-                    onClick={() => setShowGamesMenu((prev) => !prev)}
-                    className="rounded-xl bg-black px-4 py-3 text-white transition-all hover:scale-105 active:scale-95"
-                  >
+                  <button onClick={() => setShowGamesMenu((prev) => !prev)} className="rounded-xl bg-black px-4 py-3 text-white transition-all hover:scale-105 active:scale-95">
                     {showGamesMenu ? "Ocultar" : "Más minijuegos"}
                   </button>
                 </div>
@@ -1585,31 +1706,19 @@ export default function Home() {
                 </div>
 
                 <div className="mb-4 h-4 w-full overflow-hidden rounded-full bg-gray-200">
-                  <div
-                    className="h-full rounded-full bg-gradient-to-r from-emerald-500 via-yellow-400 to-red-500 transition-all duration-200"
-                    style={{ width: `${Math.min(gamePressure, 100)}%` }}
-                  />
+                  <div className="h-full rounded-full bg-gradient-to-r from-emerald-500 via-yellow-400 to-red-500 transition-all duration-200" style={{ width: `${Math.min(gamePressure, 100)}%` }} />
                 </div>
 
-                <button
-                  onClick={() => startGame("moroso")}
-                  className="w-full rounded-2xl bg-gradient-to-br from-black to-zinc-800 p-6 text-left text-white transition-all hover:scale-[1.01] active:scale-[0.99]"
-                >
+                <button onClick={() => startGame("moroso")} className="w-full rounded-2xl bg-gradient-to-br from-black to-zinc-800 p-6 text-left text-white transition-all hover:scale-[1.01] active:scale-[0.99]">
                   <p className="text-4xl">💸</p>
                   <p className="mt-3 text-xl font-black">A por el moroso</p>
-                  <p className="mt-2 text-sm text-white/70">
-                    El clásico para empezar fuerte. Rápido, simple y adictivo.
-                  </p>
+                  <p className="mt-2 text-sm text-white/70">El clásico para empezar fuerte. Rápido, simple y adictivo.</p>
                 </button>
 
                 {showGamesMenu && (
                   <div className="mt-4 grid gap-3 sm:grid-cols-2">
                     {(["reflejos", "memoria", "excusas", "monedas"] as GameId[]).map((game) => (
-                      <button
-                        key={game}
-                        onClick={() => startGame(game)}
-                        className="rounded-2xl border border-gray-200 bg-gray-50 p-4 text-left transition-all hover:scale-[1.02] active:scale-[0.98]"
-                      >
+                      <button key={game} onClick={() => startGame(game)} className="rounded-2xl border border-gray-200 bg-gray-50 p-4 text-left transition-all hover:scale-[1.02] active:scale-[0.98]">
                         <p className="text-2xl">{GAME_INFO[game].icon}</p>
                         <p className="mt-3 font-bold text-black">{GAME_INFO[game].title}</p>
                         <p className="mt-1 text-sm text-gray-600">{GAME_INFO[game].subtitle}</p>
@@ -1630,15 +1739,10 @@ export default function Home() {
 
                 <div className="space-y-3">
                   {rankingPagadores.length === 0 ? (
-                    <div className="rounded-2xl bg-gray-50 p-4 text-sm text-gray-500">
-                      Todavía no hay pagos para montar el ranking.
-                    </div>
+                    <div className="rounded-2xl bg-gray-50 p-4 text-sm text-gray-500">Todavía no hay pagos para montar el ranking.</div>
                   ) : (
                     rankingPagadores.slice(0, 5).map((item, index) => (
-                      <div
-                        key={item.userId}
-                        className="flex items-center justify-between rounded-2xl border border-gray-200 bg-gray-50 p-4"
-                      >
+                      <div key={item.userId} className="flex items-center justify-between rounded-2xl border border-gray-200 bg-gray-50 p-4">
                         <div className="flex items-center gap-3">
                           <div className="grid h-10 w-10 place-items-center rounded-full bg-black text-sm font-bold text-white">
                             {index === 0 ? "🥇" : index === 1 ? "🥈" : index === 2 ? "🥉" : "🏅"}
@@ -1649,9 +1753,7 @@ export default function Home() {
                           </div>
                         </div>
 
-                        <div className="rounded-full bg-white px-3 py-1 text-sm font-bold text-black shadow-sm">
-                          {item.total.toFixed(2)}€
-                        </div>
+                        <div className="rounded-full bg-white px-3 py-1 text-sm font-bold text-black shadow-sm">{item.total.toFixed(2)}€</div>
                       </div>
                     ))
                   )}
@@ -1665,9 +1767,7 @@ export default function Home() {
           <div className="mx-auto flex max-w-4xl animate-[fadeIn_.35s_ease] flex-col gap-6">
             <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
               <h2 className="text-2xl font-semibold text-black">Colegas</h2>
-              <p className="mt-1 text-sm text-gray-500">
-                Aquí ves el balance global contigo y cada colega, con su nivel de confianza incluido.
-              </p>
+              <p className="mt-1 text-sm text-gray-500">Aquí ves el balance global contigo y cada colega, con su nivel de confianza incluido.</p>
 
               <div className="mt-4 space-y-3">
                 {friendList.length === 0 ? (
@@ -1691,17 +1791,20 @@ export default function Home() {
                           </div>
 
                           <div className="flex flex-wrap items-center gap-2">
-                            <button
-                              onClick={() => setTagModal(trustInfo)}
-                              className={`rounded-full px-3 py-2 text-sm font-semibold ${trustInfo.colorClass}`}
-                            >
+                            <button onClick={() => setTagModal(trustInfo)} className={`rounded-full px-3 py-2 text-sm font-semibold ${trustInfo.colorClass}`}>
                               {trustInfo.label}
                             </button>
 
-                            <button
-                              onClick={() => openFriendExpense(friend.id)}
-                              className="rounded-xl bg-black px-4 py-3 text-white transition-all hover:scale-105 active:scale-95"
-                            >
+                            {balance < 0 && (
+                              <button
+                                onClick={() => settleFriendBalance(friend.id, balance)}
+                                className="rounded-xl bg-emerald-600 px-4 py-3 text-white transition-all hover:scale-105 active:scale-95"
+                              >
+                                Saldar deuda
+                              </button>
+                            )}
+
+                            <button onClick={() => openFriendExpense(friend.id)} className="rounded-xl bg-black px-4 py-3 text-white transition-all hover:scale-105 active:scale-95">
                               Añadir gasto directo
                             </button>
                           </div>
@@ -1733,9 +1836,7 @@ export default function Home() {
                           <p className="font-semibold text-black">{inv.email}</p>
                           <p className="text-xs text-gray-500">{inv.status}</p>
                         </div>
-                        <button onClick={() => acceptInvitation(inv)} className="rounded-lg bg-black px-4 py-2 text-white">
-                          Aceptar
-                        </button>
+                        <button onClick={() => acceptInvitation(inv)} className="rounded-lg bg-black px-4 py-2 text-white">Aceptar</button>
                       </div>
                     ))
                   )}
@@ -1754,7 +1855,7 @@ export default function Home() {
                           <p className="font-semibold text-black">{inv.email}</p>
                           <p className="text-xs text-gray-500">{inv.status}</p>
                         </div>
-                        <span className={`rounded-full px-3 py-1 text-xs font-semibold ${inv.status === "accepted" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
+                        <span className="rounded-full px-3 py-1 text-xs font-semibold bg-amber-100 text-amber-700">
                           {inv.status}
                         </span>
                       </div>
@@ -1774,7 +1875,6 @@ export default function Home() {
                   <h2 className="text-2xl font-semibold text-black">Añadir gasto</h2>
                   <p className="mt-1 text-sm text-gray-500">Flujo más limpio y visual.</p>
                 </div>
-
                 <div className="rounded-full bg-black px-4 py-2 text-sm font-semibold text-white">
                   {expenseMode === "group" ? "Modo grupo" : "Modo amigo"}
                 </div>
@@ -1819,84 +1919,31 @@ export default function Home() {
                     </button>
                   </div>
 
-                  <input
-                    placeholder="Concepto (ej: cena)"
-                    value={expenseTitle}
-                    onChange={(e) => setExpenseTitle(e.target.value)}
-                    className="mt-3 w-full rounded-lg border border-gray-300 p-3 text-black outline-none"
-                  />
-
-                  <input
-                    type="number"
-                    placeholder="Cantidad total"
-                    value={amount}
-                    onChange={(e) => setAmount(e.target.value)}
-                    className="mt-3 w-full rounded-lg border border-gray-300 p-3 text-black outline-none"
-                  />
+                  <input placeholder="Concepto (ej: cena)" value={expenseTitle} onChange={(e) => setExpenseTitle(e.target.value)} className="mt-3 w-full rounded-lg border border-gray-300 p-3 text-black outline-none" />
+                  <input type="number" placeholder="Cantidad total" value={amount} onChange={(e) => setAmount(e.target.value)} className="mt-3 w-full rounded-lg border border-gray-300 p-3 text-black outline-none" />
 
                   {expenseMode === "group" ? (
-                    <select
-                      value={expenseGroupId}
-                      onChange={(e) => {
-                        setExpenseGroupId(e.target.value)
-                        setPaidBy("")
-                        setCustomSplits({})
-                      }}
-                      className="mt-3 w-full rounded-lg border border-gray-300 p-3 text-black outline-none"
-                    >
+                    <select value={expenseGroupId} onChange={(e) => { setExpenseGroupId(e.target.value); setPaidBy(""); setCustomSplits({}) }} className="mt-3 w-full rounded-lg border border-gray-300 p-3 text-black outline-none">
                       <option value="">Grupo</option>
-                      {groups.map((g) => (
-                        <option key={g.id} value={g.id}>{g.name}</option>
-                      ))}
+                      {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
                     </select>
                   ) : (
-                    <select
-                      value={selectedFriendId}
-                      onChange={(e) => {
-                        setSelectedFriendId(e.target.value)
-                        setPaidBy(currentAppUser?.id || "")
-                        setCustomSplits({})
-                      }}
-                      className="mt-3 w-full rounded-lg border border-gray-300 p-3 text-black outline-none"
-                    >
+                    <select value={selectedFriendId} onChange={(e) => { setSelectedFriendId(e.target.value); setPaidBy(currentAppUser?.id || ""); setCustomSplits({}) }} className="mt-3 w-full rounded-lg border border-gray-300 p-3 text-black outline-none">
                       <option value="">Amigo</option>
-                      {friendList.map((friend) => (
-                        <option key={friend.id} value={friend.id}>{friend.name}</option>
-                      ))}
+                      {friendList.map((friend) => <option key={friend.id} value={friend.id}>{friend.name}</option>)}
                     </select>
                   )}
 
-                  <select
-                    value={paidBy}
-                    onChange={(e) => setPaidBy(e.target.value)}
-                    disabled={expenseParticipants.length === 0}
-                    className="mt-3 w-full rounded-lg border border-gray-300 p-3 text-black outline-none disabled:bg-gray-100"
-                  >
+                  <select value={paidBy} onChange={(e) => setPaidBy(e.target.value)} disabled={expenseParticipants.length === 0} className="mt-3 w-full rounded-lg border border-gray-300 p-3 text-black outline-none disabled:bg-gray-100">
                     <option value="">
-                      {expenseParticipants.length === 0
-                        ? expenseMode === "group"
-                          ? "Ese grupo no tiene personas"
-                          : "Primero elige amigo"
-                        : "Quién paga"}
+                      {expenseParticipants.length === 0 ? (expenseMode === "group" ? "Ese grupo no tiene personas" : "Primero elige amigo") : "Quién paga"}
                     </option>
-                    {expenseParticipants.map((u) => (
-                      <option key={u.id} value={u.id}>{u.name}</option>
-                    ))}
+                    {expenseParticipants.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
                   </select>
 
                   <div className="mt-3 flex gap-2">
-                    <button
-                      onClick={() => setSplitMode("equal")}
-                      className={`rounded-xl px-3 py-2 text-white ${splitMode === "equal" ? "bg-black" : "bg-gray-500"}`}
-                    >
-                      Equitativa
-                    </button>
-                    <button
-                      onClick={() => setSplitMode("custom")}
-                      className={`rounded-xl px-3 py-2 text-white ${splitMode === "custom" ? "bg-black" : "bg-gray-500"}`}
-                    >
-                      Personalizada
-                    </button>
+                    <button onClick={() => setSplitMode("equal")} className={`rounded-xl px-3 py-2 text-white ${splitMode === "equal" ? "bg-black" : "bg-gray-500"}`}>Equitativa</button>
+                    <button onClick={() => setSplitMode("custom")} className={`rounded-xl px-3 py-2 text-white ${splitMode === "custom" ? "bg-black" : "bg-gray-500"}`}>Personalizada</button>
                   </div>
 
                   {splitMode === "custom" && expenseParticipants.length > 0 && (
@@ -1920,12 +1967,7 @@ export default function Home() {
                     </div>
                   )}
 
-                  <button
-                    onClick={addExpense}
-                    className="mt-4 w-full rounded-xl bg-red-600 p-3 text-white transition-all hover:scale-105 active:scale-95"
-                  >
-                    Añadir gasto
-                  </button>
+                  <button onClick={addExpense} className="mt-4 w-full rounded-xl bg-red-600 p-3 text-white transition-all hover:scale-105 active:scale-95">Añadir gasto</button>
                 </div>
 
                 <div className="rounded-2xl bg-gray-50 p-4">
@@ -1969,9 +2011,7 @@ export default function Home() {
                             <p className="text-sm text-gray-500">Todavía no hay personas en este grupo</p>
                           ) : (
                             <ul className="flex flex-col gap-1">
-                              {group.members.map((member) => (
-                                <li key={member.id} className="text-black">- {member.name}</li>
-                              ))}
+                              {group.members.map((member) => <li key={member.id} className="text-black">- {member.name}</li>)}
                             </ul>
                           )}
                         </div>
@@ -1985,15 +2025,8 @@ export default function Home() {
                 <div className="rounded-2xl bg-gray-50 p-4">
                   <h3 className="text-lg font-semibold text-black">Crear grupo</h3>
                   <div className="mt-3 flex gap-2">
-                    <input
-                      value={groupName}
-                      onChange={(e) => setGroupName(e.target.value)}
-                      placeholder="Nombre del grupo"
-                      className="w-full rounded-lg border border-gray-300 p-3 text-black"
-                    />
-                    <button onClick={addGroup} className="rounded-xl bg-black px-4 py-3 text-white">
-                      Crear
-                    </button>
+                    <input value={groupName} onChange={(e) => setGroupName(e.target.value)} placeholder="Nombre del grupo" className="w-full rounded-lg border border-gray-300 p-3 text-black" />
+                    <button onClick={addGroup} className="rounded-xl bg-black px-4 py-3 text-white">Crear</button>
                   </div>
                 </div>
 
@@ -2002,21 +2035,15 @@ export default function Home() {
                   <div className="mt-3 grid gap-2">
                     <select value={selectedUserId} onChange={(e) => setSelectedUserId(e.target.value)} className="rounded-lg border border-gray-300 p-3 text-black">
                       <option value="">Persona</option>
-                      {friendList.map((u) => (
-                        <option key={u.id} value={u.id}>{u.name}</option>
-                      ))}
+                      {friendList.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
                     </select>
 
                     <select value={selectedGroupId} onChange={(e) => setSelectedGroupId(e.target.value)} className="rounded-lg border border-gray-300 p-3 text-black">
                       <option value="">Grupo</option>
-                      {groups.map((g) => (
-                        <option key={g.id} value={g.id}>{g.name}</option>
-                      ))}
+                      {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
                     </select>
 
-                    <button onClick={addPersonToGroup} className="rounded-xl bg-black px-4 py-3 text-white">
-                      Añadir
-                    </button>
+                    <button onClick={addPersonToGroup} className="rounded-xl bg-black px-4 py-3 text-white">Añadir</button>
                   </div>
                 </div>
               </div>
@@ -2070,9 +2097,7 @@ export default function Home() {
                                       <span className="rounded-full bg-red-100 px-3 py-1 text-sm font-bold text-red-700">
                                         {item.amount.toFixed(2)}€
                                       </span>
-                                      <button onClick={() => settleBalance(item)} className="rounded-xl bg-black px-4 py-3 text-white">
-                                        Saldar
-                                      </button>
+                                      <button onClick={() => settleBalance(item)} className="rounded-xl bg-black px-4 py-3 text-white">Saldar</button>
                                     </div>
                                   </div>
 
@@ -2132,11 +2157,7 @@ export default function Home() {
                             <p className="mt-1 text-sm text-black">{getExpensePeopleSummary(e.id)}</p>
                           </div>
 
-                          {isAdmin && (
-                            <button onClick={() => deleteExpense(e.id)} className="mt-3 rounded bg-black px-3 py-2 text-white">
-                              Borrar gasto
-                            </button>
-                          )}
+                          {isAdmin && <button onClick={() => deleteExpense(e.id)} className="mt-3 rounded bg-black px-3 py-2 text-white">Borrar gasto</button>}
                         </li>
                       ))}
                     </ul>
@@ -2177,11 +2198,7 @@ export default function Home() {
                             <p className="mt-1 text-sm text-black">{getExpensePeopleSummary(e.id)}</p>
                           </div>
 
-                          {isAdmin && (
-                            <button onClick={() => deleteExpense(e.id)} className="mt-3 rounded bg-black px-3 py-2 text-white">
-                              Borrar registro
-                            </button>
-                          )}
+                          {isAdmin && <button onClick={() => deleteExpense(e.id)} className="mt-3 rounded bg-black px-3 py-2 text-white">Borrar registro</button>}
                         </li>
                       ))}
                     </ul>
@@ -2226,9 +2243,7 @@ export default function Home() {
                               </div>
                             </div>
 
-                            <div className="rounded-full bg-red-100 px-3 py-1 text-sm font-bold text-red-700">
-                              {item.amount.toFixed(2)}€
-                            </div>
+                            <div className="rounded-full bg-red-100 px-3 py-1 text-sm font-bold text-red-700">{item.amount.toFixed(2)}€</div>
                           </div>
                         ))}
                     </div>
@@ -2239,6 +2254,196 @@ export default function Home() {
           </div>
         )}
       </div>
+
+
+        {screen === "perfil" && (
+          <div className="mx-auto flex max-w-4xl animate-[fadeIn_.35s_ease] flex-col gap-6">
+            <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+              <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="grid h-20 w-20 place-items-center rounded-full bg-black text-2xl font-black text-white shadow-lg">
+                    {((currentAppUser?.name || "US").split(" ").map((part) => part[0]).join("").slice(0, 2) || "US").toUpperCase()}
+                  </div>
+
+                  <div>
+                    <p className="text-2xl font-black text-black">{currentAppUser?.name || "Usuario"}</p>
+                    <p className="text-sm text-gray-500">{user?.email || currentAppUser?.email || "Sin correo"}</p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <span className="rounded-full bg-black px-3 py-1 text-xs font-semibold text-white">
+                        {isAdmin ? "Admin" : "Usuario"}
+                      </span>
+                      <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-700">
+                        Alta: {formatDate(currentAppUser?.created_at)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-3 sm:flex-row">
+                  <button
+                    onClick={() => {
+                      setProfileName(currentAppUser?.name || "")
+                      setIsEditingProfile((prev) => !prev)
+                    }}
+                    className="rounded-xl bg-black px-4 py-3 text-white transition-all hover:scale-105 active:scale-95"
+                  >
+                    {isEditingProfile ? "Cerrar edición" : "Editar perfil"}
+                  </button>
+
+                  <button
+                    onClick={async () => {
+                      await supabase.auth.signOut()
+                      setUser(null)
+                    }}
+                    className="rounded-xl bg-red-500 px-4 py-3 text-white transition-all hover:scale-105 active:scale-95"
+                  >
+                    Cerrar sesión
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {isEditingProfile && (
+              <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+                <h3 className="text-xl font-bold text-black">Editar perfil</h3>
+                <p className="mt-1 text-sm text-gray-500">
+                  Aquí puedes cambiar el nombre que ven tus colegas dentro de la app.
+                </p>
+
+                <div className="mt-4 grid gap-4 md:grid-cols-[1fr_auto_auto]">
+                  <input
+                    value={profileName}
+                    onChange={(e) => setProfileName(e.target.value)}
+                    placeholder="Tu nombre"
+                    className="w-full rounded-xl border border-gray-300 p-3 text-black outline-none"
+                  />
+
+                  <button
+                    onClick={saveProfile}
+                    disabled={profileSaving}
+                    className="rounded-xl bg-black px-5 py-3 font-semibold text-white transition-all hover:scale-105 active:scale-95 disabled:opacity-60"
+                  >
+                    {profileSaving ? "Guardando..." : "Guardar"}
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setProfileName(currentAppUser?.name || "")
+                      setIsEditingProfile(false)
+                    }}
+                    className="rounded-xl bg-gray-200 px-5 py-3 font-semibold text-black transition-all hover:scale-105 active:scale-95"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+                <p className="text-xs uppercase tracking-wide text-gray-500">Total pagado</p>
+                <p className="mt-2 text-3xl font-black text-black">{totalPaid.toFixed(2)}€</p>
+              </div>
+              <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+                <p className="text-xs uppercase tracking-wide text-gray-500">Te deben</p>
+                <p className="mt-2 text-3xl font-black text-emerald-600">{totalYouAreOwed.toFixed(2)}€</p>
+              </div>
+              <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+                <p className="text-xs uppercase tracking-wide text-gray-500">Debes</p>
+                <p className="mt-2 text-3xl font-black text-red-600">{totalYouOwe.toFixed(2)}€</p>
+              </div>
+              <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+                <p className="text-xs uppercase tracking-wide text-gray-500">Balance neto</p>
+                <p className={`mt-2 text-3xl font-black ${netBalance >= 0 ? "text-emerald-600" : "text-red-600"}`}>
+                  {netBalance.toFixed(2)}€
+                </p>
+              </div>
+            </div>
+
+            <div className="grid gap-6 lg:grid-cols-[1fr_0.95fr]">
+              <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+                <h3 className="text-xl font-bold text-black">Datos de usuario</h3>
+
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-2xl bg-gray-50 p-4">
+                    <p className="text-xs uppercase tracking-wide text-gray-500">Nombre</p>
+                    <p className="mt-2 font-semibold text-black">{currentAppUser?.name || "Sin nombre"}</p>
+                  </div>
+                  <div className="rounded-2xl bg-gray-50 p-4">
+                    <p className="text-xs uppercase tracking-wide text-gray-500">Correo</p>
+                    <p className="mt-2 font-semibold text-black break-all">{user?.email || currentAppUser?.email || "Sin correo"}</p>
+                  </div>
+                  <div className="rounded-2xl bg-gray-50 p-4">
+                    <p className="text-xs uppercase tracking-wide text-gray-500">Rol</p>
+                    <p className="mt-2 font-semibold text-black">{isAdmin ? "Admin" : "Usuario"}</p>
+                  </div>
+                  <div className="rounded-2xl bg-gray-50 p-4">
+                    <p className="text-xs uppercase tracking-wide text-gray-500">Fecha de registro</p>
+                    <p className="mt-2 font-semibold text-black">{formatDate(currentAppUser?.created_at)}</p>
+                  </div>
+                  <div className="rounded-2xl bg-gray-50 p-4">
+                    <p className="text-xs uppercase tracking-wide text-gray-500">Amigos</p>
+                    <p className="mt-2 font-semibold text-black">{friendList.length}</p>
+                  </div>
+                  <div className="rounded-2xl bg-gray-50 p-4">
+                    <p className="text-xs uppercase tracking-wide text-gray-500">Grupos</p>
+                    <p className="mt-2 font-semibold text-black">{myGroupsCount}</p>
+                  </div>
+                  <div className="rounded-2xl bg-gray-50 p-4">
+                    <p className="text-xs uppercase tracking-wide text-gray-500">Gastos creados</p>
+                    <p className="mt-2 font-semibold text-black">{myCreatedExpensesCount}</p>
+                  </div>
+                  <div className="rounded-2xl bg-gray-50 p-4">
+                    <p className="text-xs uppercase tracking-wide text-gray-500">Colega más frecuente</p>
+                    <p className="mt-2 font-semibold text-black">
+                      {topSharedFriend ? `${getUserName(topSharedFriend.friendId)} (${topSharedFriend.count})` : "Sin datos"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+                <h3 className="text-xl font-bold text-black">Actividad reciente</h3>
+                <div className="mt-4 space-y-3">
+                  {recentActivity.length === 0 ? (
+                    <div className="rounded-2xl bg-gray-50 p-4 text-sm text-gray-500">
+                      Todavía no tienes actividad reciente.
+                    </div>
+                  ) : (
+                    recentActivity.map((expense) => (
+                      <div key={expense.id} className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="font-semibold text-black">{expense.title}</p>
+                            <p className="mt-1 text-sm text-gray-600">
+                              {expense.amount}€ · {getGroupName(expense.group_id)}
+                            </p>
+                            <p className="text-xs text-gray-500">{formatDate(expense.created_at)}</p>
+                          </div>
+                          <div className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-black shadow-sm">
+                            {expense.group_id ? "Grupo" : "Directo"}
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                <div className="mt-5 rounded-2xl bg-black p-5 text-white">
+                  <p className="text-sm uppercase tracking-wide text-white/60">Estado actual</p>
+                  <p className="mt-2 text-xl font-black">
+                    {netBalance >= 0 ? "Vas ganando la batalla del Bizum" : "Te toca recuperar terreno"}
+                  </p>
+                  <p className="mt-2 text-sm text-white/75">
+                    {netBalance >= 0
+                      ? "Entre lo que has pagado y lo que te deben, hoy mandas tú."
+                      : "Ahora mismo debes más de lo que te deben. Hora de meter presión."}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
       {showGameFullscreen && activeGame && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black px-4 py-4">
@@ -2255,9 +2460,7 @@ export default function Home() {
                   <p className="text-sm text-white/70">{GAME_INFO[activeGame].description}</p>
                 </div>
 
-                <button onClick={closeGame} className="rounded-xl bg-red-500 px-4 py-2 font-semibold text-white">
-                  Salir
-                </button>
+                <button onClick={closeGame} className="rounded-xl bg-red-500 px-4 py-2 font-semibold text-white">Salir</button>
               </div>
 
               <div className="grid gap-3 px-4 py-4 sm:grid-cols-3 sm:px-6">
@@ -2277,10 +2480,7 @@ export default function Home() {
 
               <div className="px-4 sm:px-6">
                 <div className="h-4 w-full overflow-hidden rounded-full bg-white/10">
-                  <div
-                    className="h-full rounded-full bg-gradient-to-r from-emerald-500 via-yellow-400 to-red-500 transition-all duration-200"
-                    style={{ width: `${Math.min(gamePressure, 100)}%` }}
-                  />
+                  <div className="h-full rounded-full bg-gradient-to-r from-emerald-500 via-yellow-400 to-red-500 transition-all duration-200" style={{ width: `${Math.min(gamePressure, 100)}%` }} />
                 </div>
               </div>
 
@@ -2293,12 +2493,8 @@ export default function Home() {
                         <p className="mt-4 text-xl font-black text-black">{gameMessage}</p>
                         <p className="mt-3 text-sm text-gray-600">Dinero recuperado: {gameCash}€</p>
                         <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:justify-center">
-                          <button onClick={() => startGame(activeGame)} className="rounded-xl bg-black px-4 py-3 text-white">
-                            Volver a jugar
-                          </button>
-                          <button onClick={closeGame} className="rounded-xl bg-red-500 px-4 py-3 text-white">
-                            Salir
-                          </button>
+                          <button onClick={() => startGame(activeGame)} className="rounded-xl bg-black px-4 py-3 text-white">Volver a jugar</button>
+                          <button onClick={closeGame} className="rounded-xl bg-red-500 px-4 py-3 text-white">Salir</button>
                         </div>
                       </div>
                     </div>
@@ -2315,11 +2511,7 @@ export default function Home() {
                       </button>
 
                       {coinBursts.map((coin) => (
-                        <div
-                          key={coin.id}
-                          className="pointer-events-none absolute z-30 -translate-x-1/2 -translate-y-1/2 text-2xl font-black text-emerald-600"
-                          style={{ left: `${coin.x}%`, top: `${coin.y - 8}%` }}
-                        >
+                        <div key={coin.id} className="pointer-events-none absolute z-30 -translate-x-1/2 -translate-y-1/2 text-2xl font-black text-emerald-600" style={{ left: `${coin.x}%`, top: `${coin.y - 8}%` }}>
                           +{coin.value}€
                         </div>
                       ))}
@@ -2329,13 +2521,7 @@ export default function Home() {
                   {gameRunning && activeGame === "reflejos" && (
                     <div className="grid h-full gap-3 p-6 sm:grid-cols-3">
                       {reflexTiles.map((tile, index) => (
-                        <button
-                          key={tile.id}
-                          onClick={() => hitReflexTile(index)}
-                          className={`rounded-3xl text-4xl font-black shadow-xl transition-all hover:scale-105 active:scale-95 ${
-                            tile.kind === "money" ? "bg-emerald-500 text-white" : "bg-red-500 text-white"
-                          }`}
-                        >
+                        <button key={tile.id} onClick={() => hitReflexTile(index)} className={`rounded-3xl text-4xl font-black shadow-xl transition-all hover:scale-105 active:scale-95 ${tile.kind === "money" ? "bg-emerald-500 text-white" : "bg-red-500 text-white"}`}>
                           {tile.kind === "money" ? "€" : "✕"}
                         </button>
                       ))}
@@ -2346,20 +2532,12 @@ export default function Home() {
                     <div className="flex h-full flex-col items-center justify-center p-6 text-center">
                       <div className="mb-6 max-w-lg rounded-3xl bg-white/90 p-6 text-black shadow-xl">
                         <p className="text-lg font-black">{memoryShowing ? "Memoriza la secuencia" : "Repite la secuencia"}</p>
-                        <p className="mt-2 text-sm text-gray-600">
-                          Cuando se iluminen los números, guárdalos. Luego púlsalos en el mismo orden.
-                        </p>
+                        <p className="mt-2 text-sm text-gray-600">Cuando se iluminen los números, guárdalos. Luego púlsalos en el mismo orden.</p>
                       </div>
 
                       <div className="grid gap-4 sm:grid-cols-2">
                         {[0, 1, 2, 3].map((value) => (
-                          <button
-                            key={value}
-                            onClick={() => pressMemory(value)}
-                            className={`grid h-28 w-28 place-items-center rounded-3xl text-3xl font-black shadow-xl transition-all ${
-                              memoryFlash === value ? "bg-black text-white scale-110" : "bg-white text-black"
-                            }`}
-                          >
+                          <button key={value} onClick={() => pressMemory(value)} className={`grid h-28 w-28 place-items-center rounded-3xl text-3xl font-black shadow-xl transition-all ${memoryFlash === value ? "bg-black text-white scale-110" : "bg-white text-black"}`}>
                             {value + 1}
                           </button>
                         ))}
@@ -2371,18 +2549,12 @@ export default function Home() {
                     <div className="flex h-full flex-col items-center justify-center p-6">
                       <div className="mb-6 max-w-xl rounded-3xl bg-white/90 p-6 text-center text-black shadow-xl">
                         <p className="text-2xl font-black">Encuentra el pago real</p>
-                        <p className="mt-2 text-sm text-gray-600">
-                          Deja de tragarte excusas y caza la única opción que suena a cobro de verdad.
-                        </p>
+                        <p className="mt-2 text-sm text-gray-600">Deja de tragarte excusas y caza la única opción que suena a cobro de verdad.</p>
                       </div>
 
                       <div className="grid w-full max-w-3xl gap-4 md:grid-cols-3">
                         {excuseOptions.map((option, index) => (
-                          <button
-                            key={`${option}-${index}`}
-                            onClick={() => pickExcuse(index)}
-                            className="rounded-3xl bg-white p-5 text-left text-black shadow-xl transition-all hover:scale-[1.02] active:scale-[0.98]"
-                          >
+                          <button key={`${option}-${index}`} onClick={() => pickExcuse(index)} className="rounded-3xl bg-white p-5 text-left text-black shadow-xl transition-all hover:scale-[1.02] active:scale-[0.98]">
                             <p className="text-lg font-bold">{option}</p>
                           </button>
                         ))}
@@ -2396,18 +2568,13 @@ export default function Home() {
                         <button
                           key={item.id}
                           onClick={() => clickCoinRainItem(item.id)}
-                          className={`absolute z-20 grid h-16 w-16 place-items-center rounded-full text-2xl shadow-xl transition-all hover:scale-105 active:scale-95 ${
-                            item.kind === "coin" ? "bg-yellow-400 text-black" : "bg-red-500 text-white"
-                          }`}
+                          className={`absolute z-20 grid h-16 w-16 place-items-center rounded-full text-2xl shadow-xl transition-all hover:scale-105 active:scale-95 ${item.kind === "coin" ? "bg-yellow-400 text-black" : "bg-red-500 text-white"}`}
                           style={{ left: `${item.left}%`, top: `${item.top}%` }}
                         >
                           {item.kind === "coin" ? "🪙" : "💣"}
                         </button>
                       ))}
-
-                      <div className="absolute bottom-4 left-4 rounded-xl bg-white/80 px-3 py-2 text-sm text-black shadow">
-                        Monedas sí. Trampas no.
-                      </div>
+                      <div className="absolute bottom-4 left-4 rounded-xl bg-white/80 px-3 py-2 text-sm text-black shadow">Monedas sí. Trampas no.</div>
                     </div>
                   )}
 
@@ -2431,22 +2598,16 @@ export default function Home() {
           <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <p className={`inline-flex rounded-full px-3 py-2 text-sm font-semibold ${tagModal.colorClass}`}>
-                  {tagModal.label}
-                </p>
+                <p className={`inline-flex rounded-full px-3 py-2 text-sm font-semibold ${tagModal.colorClass}`}>{tagModal.label}</p>
                 <h3 className="mt-4 text-2xl font-black text-black">{tagModal.title}</h3>
               </div>
 
-              <button onClick={() => setTagModal(null)} className="rounded-full bg-gray-100 px-3 py-2 text-sm font-semibold text-black">
-                ✕
-              </button>
+              <button onClick={() => setTagModal(null)} className="rounded-full bg-gray-100 px-3 py-2 text-sm font-semibold text-black">✕</button>
             </div>
 
             <p className="mt-4 text-sm leading-6 text-gray-600">{tagModal.description}</p>
 
-            <button onClick={() => setTagModal(null)} className="mt-6 w-full rounded-xl bg-black px-4 py-3 text-white">
-              Vale, ya sé de qué pie cojea
-            </button>
+            <button onClick={() => setTagModal(null)} className="mt-6 w-full rounded-xl bg-black px-4 py-3 text-white">Vale, ya sé de qué pie cojea</button>
           </div>
         </div>
       )}
