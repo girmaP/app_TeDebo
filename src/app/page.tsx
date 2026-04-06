@@ -188,6 +188,9 @@ const seededIndex = (input: string, length: number) => {
   return sum % length
 }
 
+const ADMIN_EMAIL = "gpinegrad@gmail.com"
+const containsReservedAdminName = (value: string) => value.toLowerCase().includes("girma")
+
 export default function Home() {
   const [user, setUser] = useState<any>(null)
 
@@ -366,6 +369,7 @@ export default function Home() {
       auth_user_id: user.id,
       owner_id: user.id,
       email: user.email?.toLowerCase() || null,
+      is_admin: (user.email || "").toLowerCase() === ADMIN_EMAIL,
     })
   }
 
@@ -381,7 +385,9 @@ export default function Home() {
     ])
   }
 
-  const isAdmin = useMemo(() => currentAppUser?.is_admin || false, [currentAppUser])
+  const isAdmin = useMemo(() => {
+    return (user?.email || "").toLowerCase() === ADMIN_EMAIL || currentAppUser?.is_admin || false
+  }, [currentAppUser, user])
 
   const getUsers = async () => {
     const { data } = await supabase.from("users").select("*").order("created_at", { ascending: false })
@@ -519,6 +525,13 @@ export default function Home() {
       return
     }
 
+    const isProtectedAdminEmail = (user?.email || "").toLowerCase() === ADMIN_EMAIL
+
+    if (!isProtectedAdminEmail && containsReservedAdminName(cleanName)) {
+      alert("El nombre Girma está reservado para el administrador. Elige otro nombre.")
+      return
+    }
+
     setProfileSaving(true)
 
     const { error } = await supabase
@@ -526,6 +539,7 @@ export default function Home() {
       .update({
         name: cleanName,
         avatar_url: profileAvatarUrl.trim() || null,
+        is_admin: (user?.email || "").toLowerCase() === ADMIN_EMAIL,
       })
       .eq("id", currentAppUser.id)
 
@@ -1355,8 +1369,55 @@ export default function Home() {
     await getExpenseSplits()
   }
 
+  const deleteAllExpensesByIds = async (expenseIds: string[], successMessage: string) => {
+    if (!isAdmin) {
+      alert("Solo Girma puede borrar historial completo por ahora")
+      return
+    }
+
+    if (expenseIds.length === 0) {
+      alert("No hay nada que borrar")
+      return
+    }
+
+    await supabase.from("expense_splits").delete().in("expense_id", expenseIds)
+    await supabase.from("expenses").delete().in("id", expenseIds)
+
+    showToast(successMessage)
+    await getExpenses()
+    await getExpenseSplits()
+  }
+
+  const deleteAllNormalHistory = async () => {
+    await deleteAllExpensesByIds(
+      normalExpenses.map((expense) => expense.id),
+      "Historial de gastos borrado 🗑️"
+    )
+  }
+
+  const deleteAllSettledHistory = async () => {
+    await deleteAllExpensesByIds(
+      settledExpenses.map((expense) => expense.id),
+      "Historial de deudas saldadas borrado 🗑️"
+    )
+  }
+
+  const deleteAllHistory = async () => {
+    await deleteAllExpensesByIds(
+      expenses.map((expense) => expense.id),
+      "Todo el historial se ha borrado 🗑️"
+    )
+  }
+
   const settleBalance = async (item: BalanceItem) => {
-    if (!user) return
+    if (!user || !currentAppUser) return
+
+    const canSettle = isAdmin || currentAppUser.id === item.creditorId
+
+    if (!canSettle) {
+      alert("Solo la persona que tiene que recibir el dinero puede saldar la deuda. Nada de jugadas raras.")
+      return
+    }
 
     const { data: expenseData } = await supabase
       .from("expenses")
@@ -1903,6 +1964,15 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
 
               if (!email || !password || (authMode === "register" && (!nombre || !apellidos))) {
                 alert("Faltan datos")
+                setLoading(false)
+                return
+              }
+
+              const isProtectedAdminEmail = email.toLowerCase() === ADMIN_EMAIL
+              const requestedDisplayName = `${nombre} ${apellidos}`.trim()
+
+              if (authMode === "register" && !isProtectedAdminEmail && containsReservedAdminName(requestedDisplayName)) {
+                alert("El nombre Girma está reservado para el administrador. Usa otro nombre.")
                 setLoading(false)
                 return
               }
@@ -2676,14 +2746,35 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
 
         {screen === "historial" && (
           <div className="mx-auto flex max-w-4xl animate-[fadeIn_.35s_ease] flex-col gap-6">
+            {isAdmin && (
+              <div className="flex justify-end">
+                <button
+                  onClick={deleteAllHistory}
+                  className="rounded-xl bg-black px-4 py-3 text-sm font-semibold text-white"
+                >
+                  Borrar historial completo
+                </button>
+              </div>
+            )}
             <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-              <button onClick={() => setShowExpenseHistory((prev) => !prev)} className="flex w-full items-center justify-between text-left">
-                <div>
-                  <h2 className="text-xl font-semibold text-black">Historial de gastos</h2>
-                  <p className="mt-1 text-sm text-gray-500">Todos los movimientos normales guardados.</p>
-                </div>
-                <span className="text-black">{showExpenseHistory ? "▲" : "▼"}</span>
-              </button>
+              <div className="flex items-start justify-between gap-3">
+                <button onClick={() => setShowExpenseHistory((prev) => !prev)} className="flex w-full items-center justify-between text-left">
+                  <div>
+                    <h2 className="text-xl font-semibold text-black">Historial de gastos</h2>
+                    <p className="mt-1 text-sm text-gray-500">Todos los movimientos normales guardados.</p>
+                  </div>
+                  <span className="text-black">{showExpenseHistory ? "▲" : "▼"}</span>
+                </button>
+
+                {isAdmin && (
+                  <button
+                    onClick={deleteAllNormalHistory}
+                    className="rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white"
+                  >
+                    Borrar todo
+                  </button>
+                )}
+              </div>
 
               {showExpenseHistory && (
                 <div className="mt-4">
@@ -2723,13 +2814,24 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
             </div>
 
             <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-              <button onClick={() => setShowSettledHistory((prev) => !prev)} className="flex w-full items-center justify-between text-left">
-                <div>
-                  <h2 className="text-xl font-semibold text-black">Historial de deudas saldadas</h2>
-                  <p className="mt-1 text-sm text-gray-500">Los movimientos ya resueltos también cuentan.</p>
-                </div>
-                <span className="text-black">{showSettledHistory ? "▲" : "▼"}</span>
-              </button>
+              <div className="flex items-start justify-between gap-3">
+                <button onClick={() => setShowSettledHistory((prev) => !prev)} className="flex w-full items-center justify-between text-left">
+                  <div>
+                    <h2 className="text-xl font-semibold text-black">Historial de deudas saldadas</h2>
+                    <p className="mt-1 text-sm text-gray-500">Los movimientos ya resueltos también cuentan.</p>
+                  </div>
+                  <span className="text-black">{showSettledHistory ? "▲" : "▼"}</span>
+                </button>
+
+                {isAdmin && (
+                  <button
+                    onClick={deleteAllSettledHistory}
+                    className="rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white"
+                  >
+                    Borrar todo
+                  </button>
+                )}
+              </div>
 
               {showSettledHistory && (
                 <div className="mt-4">
