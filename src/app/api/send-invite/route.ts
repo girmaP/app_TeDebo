@@ -5,7 +5,7 @@ const getAppUrl = () => {
   return (
     process.env.NEXT_PUBLIC_APP_URL ||
     process.env.APP_URL ||
-    "https://app-te-debo-yqx5.vercel.app"
+    "https://app-te-debo.vercel.app/"
   )
 }
 
