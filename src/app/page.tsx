@@ -1454,18 +1454,6 @@ const menuItems: Screen[] = ["amigos", "gastos", "balances", "historial", "moros
                   <div className="absolute right-10 bottom-6 h-24 w-24 rounded-full bg-red-300/30 blur-2xl animate-pulse" />
                 </div>
 
-                {!gameRunning && !gameMessage && (
-                  <div className="absolute inset-0 grid place-items-center p-6 text-center">
-                    <div>
-                      <p className="text-5xl">😈</p>
-                      <p className="mt-3 text-lg font-bold text-black">Pulsa empezar y mete presión</p>
-                      <p className="mt-2 text-sm text-gray-600">
-                        Cuanto más le toques, más pasta rascas y más nervioso se pone.
-                      </p>
-                    </div>
-                  </div>
-                )}
-
                 {gameRunning && (
                   <>
                     <button
@@ -1624,6 +1612,17 @@ const menuItems: Screen[] = ["amigos", "gastos", "balances", "historial", "moros
   </div>
 </div>
         )}
+        {!gameRunning && !gameMessage && (
+                  <div className="absolute inset-0 grid place-items-center p-6 text-center">
+                    <div>
+                      <p className="text-5xl">😈</p>
+                      <p className="mt-3 text-lg font-bold text-black">Pulsa empezar y mete presión</p>
+                      <p className="mt-2 text-sm text-gray-600">
+                        Cuanto más le toques, más pasta rascas y más nervioso se pone.
+                      </p>
+                    </div>
+                  </div>
+                )}
 
         {screen === "amigos" && (
           <div className="mx-auto flex max-w-3xl animate-[fadeIn_.35s_ease] flex-col gap-6">
