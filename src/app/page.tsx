@@ -764,7 +764,40 @@ export default function Home() {
     return expenseSplits.filter((split) => visibleExpenseIds.has(split.expense_id))
   }, [expenseSplits, visibleExpenseIds])
 
+  const getUserById = (userId?: string | null) => {
+    if (!userId) return null
+    return users.find((u) => u.id === userId) || null
+  }
+
   const getUserName = (userId: string) => users.find((u) => u.id === userId)?.name || "Usuario"
+
+  const getUserAvatar = (userId?: string | null) => {
+    const userItem = getUserById(userId)
+    return userItem?.avatar_url || null
+  }
+
+  const renderAvatar = (
+    userId?: string | null,
+    fallbackName?: string | null,
+    sizeClass = "h-12 w-12",
+    textClass = "text-base",
+    extraClass = ""
+  ) => {
+    const avatarUrl = getUserAvatar(userId)
+    const displayName = fallbackName || getUserById(userId)?.name || "Usuario"
+
+    return (
+      <div
+        className={`grid ${sizeClass} place-items-center overflow-hidden rounded-full bg-black font-bold text-white shadow-sm ${textClass} ${extraClass}`.trim()}
+      >
+        {avatarUrl ? (
+          <img src={avatarUrl} alt={displayName} className="h-full w-full object-cover" />
+        ) : (
+          getInitials(displayName)
+        )}
+      </div>
+    )
+  }
 
   const getGroupName = (groupId: string | null) => {
     if (!groupId) return "Gasto individual"
@@ -1832,9 +1865,7 @@ export default function Home() {
                       <div key={friend.id} className={`rounded-xl border p-4 ${trustInfo.borderClass}`}>
                         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                           <div className="flex items-center gap-3">
-                            <div className="grid h-12 w-12 place-items-center rounded-full bg-black text-white font-bold">
-                              {(friend.name || "US").slice(0, 2).toUpperCase()}
-                            </div>
+                            {renderAvatar(friend.id, friend.name, "h-12 w-12", "text-sm")}
                             <div>
                               <p className="text-lg font-semibold text-black">{friend.name}</p>
                               <p className="text-sm text-gray-600">{getFriendBalanceText(friend.id)}</p>
@@ -2139,9 +2170,18 @@ export default function Home() {
                               balances.map((item, index) => (
                                 <div key={index} className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
                                   <div className="mb-3 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                                    <div>
-                                      <p className="font-semibold text-black">{getUserName(item.debtorId)}</p>
-                                      <p className="text-sm text-gray-500">Debe a {getUserName(item.creditorId)}</p>
+                                    <div className="flex items-center gap-3">
+                                      {renderAvatar(item.debtorId, getUserName(item.debtorId), "h-12 w-12", "text-sm")}
+                                      <div>
+                                        <p className="font-semibold text-black">{getUserName(item.debtorId)}</p>
+                                        <p className="text-sm text-gray-500">
+                                          Debe a {getUserName(item.creditorId)}
+                                        </p>
+                                        <div className="mt-2 flex items-center gap-2">
+                                          {renderAvatar(item.creditorId, getUserName(item.creditorId), "h-7 w-7", "text-[10px]")}
+                                          <span className="text-xs text-gray-500">{getUserName(item.creditorId)}</span>
+                                        </div>
+                                      </div>
                                     </div>
 
                                     <div className="flex items-center gap-3">
@@ -2192,11 +2232,14 @@ export default function Home() {
                       {normalExpenses.map((e) => (
                         <li key={e.id} className="rounded-xl border bg-gray-50 p-4 shadow-sm">
                           <div className="flex items-start justify-between gap-3">
-                            <div>
-                              <p className="font-semibold text-black">{e.title}</p>
-                              <p className="mt-1 text-sm text-gray-700">{e.amount}€ · {getGroupName(e.group_id)}</p>
-                              <p className="text-sm text-gray-700">Pagó: {getUserName(e.paid_by)}</p>
-                              <p className="mt-2 text-xs text-gray-500">{formatDate(e.created_at)}</p>
+                            <div className="flex items-start gap-3">
+                              {renderAvatar(e.paid_by, getUserName(e.paid_by), "h-11 w-11", "text-sm")}
+                              <div>
+                                <p className="font-semibold text-black">{e.title}</p>
+                                <p className="mt-1 text-sm text-gray-700">{e.amount}€ · {getGroupName(e.group_id)}</p>
+                                <p className="text-sm text-gray-700">Pagó: {getUserName(e.paid_by)}</p>
+                                <p className="mt-2 text-xs text-gray-500">{formatDate(e.created_at)}</p>
+                              </div>
                             </div>
                             <div className="rounded-full bg-white px-3 py-1 text-sm font-semibold text-black shadow-sm">
                               {e.group_id ? "Grupo" : "Individual"}
@@ -2235,11 +2278,14 @@ export default function Home() {
                       {settledExpenses.map((e) => (
                         <li key={e.id} className="rounded-xl border bg-green-50 p-4 shadow-sm">
                           <div className="flex items-start justify-between gap-3">
-                            <div>
-                              <p className="font-semibold text-black">Saldar deuda</p>
-                              <p className="mt-1 text-sm text-gray-700">{e.amount}€ · {getGroupName(e.group_id)}</p>
-                              <p className="text-sm text-gray-700">Pagó: {getUserName(e.paid_by)}</p>
-                              <p className="mt-2 text-xs text-gray-500">{formatDate(e.created_at)}</p>
+                            <div className="flex items-start gap-3">
+                              {renderAvatar(e.paid_by, getUserName(e.paid_by), "h-11 w-11", "text-sm")}
+                              <div>
+                                <p className="font-semibold text-black">Saldar deuda</p>
+                                <p className="mt-1 text-sm text-gray-700">{e.amount}€ · {getGroupName(e.group_id)}</p>
+                                <p className="text-sm text-gray-700">Pagó: {getUserName(e.paid_by)}</p>
+                                <p className="mt-2 text-xs text-gray-500">{formatDate(e.created_at)}</p>
+                              </div>
                             </div>
                             <div className="rounded-full bg-white px-3 py-1 text-sm font-semibold text-green-700 shadow-sm">Saldado</div>
                           </div>
@@ -2270,9 +2316,14 @@ export default function Home() {
               ) : (
                 <div className="grid gap-6 lg:grid-cols-[1fr_0.9fr]">
                   <div className="rounded-2xl bg-gradient-to-br from-red-500 to-black p-6 text-white shadow-xl">
-                    <div className="text-5xl">💀</div>
-                    <p className="mt-4 text-2xl font-bold">{getUserName(moroso.friendId)}</p>
-                    <p className="mt-2 text-lg">te debe {moroso.amount.toFixed(2)}€</p>
+                    <div className="flex items-center gap-4">
+                      {renderAvatar(moroso.friendId, getUserName(moroso.friendId), "h-16 w-16", "text-lg")}
+                      <div>
+                        <div className="text-3xl">💀</div>
+                        <p className="mt-2 text-2xl font-bold">{getUserName(moroso.friendId)}</p>
+                      </div>
+                    </div>
+                    <p className="mt-4 text-lg">te debe {moroso.amount.toFixed(2)}€</p>
                     <p className="mt-3 text-sm opacity-80">Nivel de morosidad: extremo</p>
                   </div>
 
@@ -2288,6 +2339,7 @@ export default function Home() {
                               <div className="grid h-10 w-10 place-items-center rounded-full bg-black text-sm font-bold text-white">
                                 {index + 1}
                               </div>
+                              {renderAvatar(item.friendId, getUserName(item.friendId), "h-10 w-10", "text-xs")}
                               <div>
                                 <p className="font-semibold text-black">{getUserName(item.friendId)}</p>
                                 <p className="text-xs text-gray-500">Debe contigo</p>
@@ -2308,57 +2360,49 @@ export default function Home() {
 
 
         {screen === "perfil" && (
-          <div className="mx-auto flex max-w-4xl animate-[fadeIn_.35s_ease] flex-col gap-6">
-            <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
-              <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+          <div className="mx-auto flex max-w-5xl animate-[fadeIn_.35s_ease] flex-col gap-6">
+            <div className="overflow-hidden rounded-3xl border border-gray-200 bg-gradient-to-br from-black via-zinc-900 to-slate-800 p-6 text-white shadow-2xl">
+              <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
                 <div className="flex items-center gap-4">
-                  <div className="grid h-20 w-20 place-items-center overflow-hidden rounded-full bg-black text-2xl font-black text-white shadow-lg">
-                    {currentAppUser?.avatar_url ? (
-                      <img
-                        src={currentAppUser.avatar_url}
-                        alt="Avatar"
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      getInitials(currentAppUser?.name)
-                    )}
-                  </div>
-
+                  {renderAvatar(currentAppUser?.id, currentAppUser?.name, "h-24 w-24", "text-2xl", "ring-4 ring-white/15")}
                   <div>
-                    <p className="text-2xl font-black text-black">{currentAppUser?.name || "Usuario"}</p>
-                    <p className="text-sm text-gray-500">{user?.email || currentAppUser?.email || "Sin correo"}</p>
+                    <p className="text-3xl font-black">{currentAppUser?.name || "Usuario"}</p>
+                    <p className="mt-1 text-sm text-white/70">{user?.email || currentAppUser?.email || "Sin correo"}</p>
                     <div className="mt-3 flex flex-wrap gap-2">
-                      <span className="rounded-full bg-black px-3 py-1 text-xs font-semibold text-white">
+                      <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white backdrop-blur">
                         {isAdmin ? "Admin" : "Usuario"}
                       </span>
-                      <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-700">
+                      <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white/90 backdrop-blur">
                         Alta: {formatDate(currentAppUser?.created_at)}
+                      </span>
+                      <span className={`rounded-full px-3 py-1 text-xs font-semibold ${netBalance >= 0 ? "bg-emerald-400/20 text-emerald-200" : "bg-red-400/20 text-red-200"}`}>
+                        {netBalance >= 0 ? "Buen momento" : "Toca recuperar"}
                       </span>
                     </div>
                   </div>
                 </div>
 
-                <div className="flex flex-col gap-3 sm:flex-row">
-                  <button
-                    onClick={() => {
-                      setProfileName(currentAppUser?.name || "")
-                      setProfileAvatarUrl(currentAppUser?.avatar_url || "")
-                      setIsEditingProfile((prev) => !prev)
-                    }}
-                    className="rounded-xl bg-black px-4 py-3 text-white transition-all hover:scale-105 active:scale-95"
-                  >
-                    {isEditingProfile ? "Cerrar edición" : "Editar perfil"}
-                  </button>
-
-                  <button
-                    onClick={async () => {
-                      await supabase.auth.signOut()
-                      setUser(null)
-                    }}
-                    className="rounded-xl bg-red-500 px-4 py-3 text-white transition-all hover:scale-105 active:scale-95"
-                  >
-                    Cerrar sesión
-                  </button>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-2xl bg-white/10 p-4 backdrop-blur">
+                    <p className="text-xs uppercase tracking-wide text-white/60">Colega más frecuente</p>
+                    <p className="mt-2 text-lg font-black">
+                      {topSharedFriend ? getUserName(topSharedFriend.friendId) : "Sin datos"}
+                    </p>
+                    <p className="mt-1 text-xs text-white/65">
+                      {topSharedFriend ? `${topSharedFriend.count} gastos compartidos` : "Aún no hay suficiente actividad"}
+                    </p>
+                  </div>
+                  <div className="rounded-2xl bg-white/10 p-4 backdrop-blur">
+                    <p className="text-xs uppercase tracking-wide text-white/60">Estado</p>
+                    <p className="mt-2 text-lg font-black">
+                      {netBalance >= 0 ? "Vas mandando" : "Hay que meter presión"}
+                    </p>
+                    <p className="mt-1 text-xs text-white/65">
+                      {netBalance >= 0
+                        ? "Ahora mismo te deben más de lo que debes."
+                        : "Debes más de lo que te deben. Hora de cobrar."}
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
@@ -2367,81 +2411,107 @@ export default function Home() {
               <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
                 <h3 className="text-xl font-bold text-black">Editar perfil</h3>
                 <p className="mt-1 text-sm text-gray-500">
-                  Aquí puedes cambiar el nombre que ven tus colegas dentro de la app.
+                  Cambia tu nombre visible y tu avatar. La foto se verá también por amigos, balances e historial.
                 </p>
 
-                <div className="mt-4 grid gap-4">
-                  <div className="grid gap-4 md:grid-cols-[120px_1fr] md:items-center">
-                    <div className="grid h-24 w-24 place-items-center overflow-hidden rounded-full bg-black text-2xl font-black text-white shadow-lg">
+                <div className="mt-5 grid gap-5 lg:grid-cols-[180px_1fr]">
+                  <div className="flex flex-col items-center gap-4 rounded-2xl bg-gray-50 p-5">
+                    <div className="grid h-28 w-28 place-items-center overflow-hidden rounded-full bg-black text-3xl font-black text-white shadow-lg">
                       {profileAvatarUrl ? (
                         <img src={profileAvatarUrl} alt="Avatar" className="h-full w-full object-cover" />
                       ) : (
                         getInitials(profileName || currentAppUser?.name)
                       )}
                     </div>
+                    <p className="text-center text-sm text-gray-500">Vista previa del perfil</p>
+                  </div>
 
-                    <div className="grid gap-3">
-                      <input
-                        value={profileName}
-                        onChange={(e) => setProfileName(e.target.value)}
-                        placeholder="Tu nombre"
-                        className="w-full rounded-xl border border-gray-300 p-3 text-black outline-none"
-                      />
+                  <div className="grid gap-4">
+                    <input
+                      value={profileName}
+                      onChange={(e) => setProfileName(e.target.value)}
+                      placeholder="Tu nombre"
+                      className="w-full rounded-xl border border-gray-300 p-3 text-black outline-none"
+                    />
 
-                      <input
-                        value={profileAvatarUrl}
-                        onChange={(e) => setProfileAvatarUrl(e.target.value)}
-                        placeholder="URL de la foto (opcional)"
-                        className="w-full rounded-xl border border-gray-300 p-3 text-black outline-none"
-                      />
+                    <input
+                      value={profileAvatarUrl}
+                      onChange={(e) => setProfileAvatarUrl(e.target.value)}
+                      placeholder="URL de la foto (opcional)"
+                      className="w-full rounded-xl border border-gray-300 p-3 text-black outline-none"
+                    />
 
-                      <div className="flex flex-col gap-3 sm:flex-row">
-                        <label className="cursor-pointer rounded-xl bg-gray-200 px-5 py-3 font-semibold text-black transition-all hover:scale-105 active:scale-95 text-center">
-                          {avatarUploading ? "Subiendo..." : "Subir foto"}
-                          <input
-                            type="file"
-                            accept="image/*"
-                            className="hidden"
-                            onChange={async (e) => {
-                              const file = e.target.files?.[0]
-                              if (file) await uploadProfileAvatar(file)
-                            }}
-                          />
-                        </label>
+                    <div className="flex flex-col gap-3 sm:flex-row">
+                      <label className="cursor-pointer rounded-xl bg-black px-5 py-3 font-semibold text-white transition-all hover:scale-105 active:scale-95 text-center">
+                        {avatarUploading ? "Subiendo..." : "Subir foto"}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0]
+                            if (file) await uploadProfileAvatar(file)
+                          }}
+                        />
+                      </label>
 
-                        {profileAvatarUrl && (
-                          <button
-                            onClick={() => setProfileAvatarUrl("")}
-                            className="rounded-xl bg-white border border-gray-300 px-5 py-3 font-semibold text-black transition-all hover:scale-105 active:scale-95"
-                          >
-                            Quitar foto
-                          </button>
-                        )}
-                      </div>
+                      {profileAvatarUrl && (
+                        <button
+                          onClick={() => setProfileAvatarUrl("")}
+                          className="rounded-xl border border-gray-300 bg-white px-5 py-3 font-semibold text-black transition-all hover:scale-105 active:scale-95"
+                        >
+                          Quitar foto
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="flex flex-col gap-3 sm:flex-row">
+                      <button
+                        onClick={saveProfile}
+                        disabled={profileSaving || avatarUploading}
+                        className="rounded-xl bg-emerald-600 px-5 py-3 font-semibold text-white transition-all hover:scale-105 active:scale-95 disabled:opacity-60"
+                      >
+                        {profileSaving ? "Guardando..." : "Guardar cambios"}
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          setProfileName(currentAppUser?.name || "")
+                          setProfileAvatarUrl(currentAppUser?.avatar_url || "")
+                          setIsEditingProfile(false)
+                        }}
+                        className="rounded-xl bg-gray-200 px-5 py-3 font-semibold text-black transition-all hover:scale-105 active:scale-95"
+                      >
+                        Cancelar
+                      </button>
                     </div>
                   </div>
-
-                  <div className="grid gap-4 md:grid-cols-[auto_auto] md:justify-start">
-                    <button
-                      onClick={saveProfile}
-                      disabled={profileSaving || avatarUploading}
-                      className="rounded-xl bg-black px-5 py-3 font-semibold text-white transition-all hover:scale-105 active:scale-95 disabled:opacity-60"
-                    >
-                      {profileSaving ? "Guardando..." : "Guardar"}
-                    </button>
-
-                    <button
-                      onClick={() => {
-                        setProfileName(currentAppUser?.name || "")
-                        setProfileAvatarUrl(currentAppUser?.avatar_url || "")
-                        setIsEditingProfile(false)
-                      }}
-                      className="rounded-xl bg-gray-200 px-5 py-3 font-semibold text-black transition-all hover:scale-105 active:scale-95"
-                    >
-                      Cancelar
-                    </button>
-                  </div>
                 </div>
+              </div>
+            )}
+
+            {!isEditingProfile && (
+              <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
+                <button
+                  onClick={() => {
+                    setProfileName(currentAppUser?.name || "")
+                    setProfileAvatarUrl(currentAppUser?.avatar_url || "")
+                    setIsEditingProfile(true)
+                  }}
+                  className="rounded-xl bg-black px-4 py-3 text-white transition-all hover:scale-105 active:scale-95"
+                >
+                  Editar perfil
+                </button>
+
+                <button
+                  onClick={async () => {
+                    await supabase.auth.signOut()
+                    setUser(null)
+                  }}
+                  className="rounded-xl bg-red-500 px-4 py-3 text-white transition-all hover:scale-105 active:scale-95"
+                >
+                  Cerrar sesión
+                </button>
               </div>
             )}
 
@@ -2449,95 +2519,115 @@ export default function Home() {
               <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
                 <p className="text-xs uppercase tracking-wide text-gray-500">Total pagado</p>
                 <p className="mt-2 text-3xl font-black text-black">{totalPaid.toFixed(2)}€</p>
+                <p className="mt-1 text-xs text-gray-500">Lo que has adelantado tú</p>
               </div>
-              <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-                <p className="text-xs uppercase tracking-wide text-gray-500">Te deben</p>
+              <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 shadow-sm">
+                <p className="text-xs uppercase tracking-wide text-emerald-700">Te deben</p>
                 <p className="mt-2 text-3xl font-black text-emerald-600">{totalYouAreOwed.toFixed(2)}€</p>
+                <p className="mt-1 text-xs text-emerald-700/80">Pendiente de cobrar</p>
               </div>
-              <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-                <p className="text-xs uppercase tracking-wide text-gray-500">Debes</p>
+              <div className="rounded-2xl border border-red-200 bg-red-50 p-5 shadow-sm">
+                <p className="text-xs uppercase tracking-wide text-red-700">Debes</p>
                 <p className="mt-2 text-3xl font-black text-red-600">{totalYouOwe.toFixed(2)}€</p>
+                <p className="mt-1 text-xs text-red-700/80">Pendiente de pagar</p>
               </div>
               <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
                 <p className="text-xs uppercase tracking-wide text-gray-500">Balance neto</p>
                 <p className={`mt-2 text-3xl font-black ${netBalance >= 0 ? "text-emerald-600" : "text-red-600"}`}>
                   {netBalance.toFixed(2)}€
                 </p>
+                <p className="mt-1 text-xs text-gray-500">Tu foto económica ahora mismo</p>
               </div>
             </div>
 
-            <div className="grid gap-6 lg:grid-cols-[1fr_0.95fr]">
-              <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-                <h3 className="text-xl font-bold text-black">Datos de usuario</h3>
+            <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
+              <div className="grid gap-6">
+                <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+                  <h3 className="text-xl font-bold text-black">Datos del usuario</h3>
 
-                <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                  <div className="rounded-2xl bg-gray-50 p-4">
-                    <p className="text-xs uppercase tracking-wide text-gray-500">Nombre</p>
-                    <p className="mt-2 font-semibold text-black">{currentAppUser?.name || "Sin nombre"}</p>
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                    <div className="rounded-2xl bg-gray-50 p-4">
+                      <p className="text-xs uppercase tracking-wide text-gray-500">Nombre</p>
+                      <p className="mt-2 font-semibold text-black">{currentAppUser?.name || "Sin nombre"}</p>
+                    </div>
+                    <div className="rounded-2xl bg-gray-50 p-4">
+                      <p className="text-xs uppercase tracking-wide text-gray-500">Correo</p>
+                      <p className="mt-2 break-all font-semibold text-black">{user?.email || currentAppUser?.email || "Sin correo"}</p>
+                    </div>
+                    <div className="rounded-2xl bg-gray-50 p-4">
+                      <p className="text-xs uppercase tracking-wide text-gray-500">Rol</p>
+                      <p className="mt-2 font-semibold text-black">{isAdmin ? "Admin" : "Usuario"}</p>
+                    </div>
+                    <div className="rounded-2xl bg-gray-50 p-4">
+                      <p className="text-xs uppercase tracking-wide text-gray-500">Fecha de registro</p>
+                      <p className="mt-2 font-semibold text-black">{formatDate(currentAppUser?.created_at)}</p>
+                    </div>
                   </div>
-                  <div className="rounded-2xl bg-gray-50 p-4">
-                    <p className="text-xs uppercase tracking-wide text-gray-500">Correo</p>
-                    <p className="mt-2 font-semibold text-black break-all">{user?.email || currentAppUser?.email || "Sin correo"}</p>
-                  </div>
-                  <div className="rounded-2xl bg-gray-50 p-4">
-                    <p className="text-xs uppercase tracking-wide text-gray-500">Rol</p>
-                    <p className="mt-2 font-semibold text-black">{isAdmin ? "Admin" : "Usuario"}</p>
-                  </div>
-                  <div className="rounded-2xl bg-gray-50 p-4">
-                    <p className="text-xs uppercase tracking-wide text-gray-500">Fecha de registro</p>
-                    <p className="mt-2 font-semibold text-black">{formatDate(currentAppUser?.created_at)}</p>
-                  </div>
-                  <div className="rounded-2xl bg-gray-50 p-4">
-                    <p className="text-xs uppercase tracking-wide text-gray-500">Amigos</p>
-                    <p className="mt-2 font-semibold text-black">{friendList.length}</p>
-                  </div>
-                  <div className="rounded-2xl bg-gray-50 p-4">
-                    <p className="text-xs uppercase tracking-wide text-gray-500">Grupos</p>
-                    <p className="mt-2 font-semibold text-black">{myGroupsCount}</p>
-                  </div>
-                  <div className="rounded-2xl bg-gray-50 p-4">
-                    <p className="text-xs uppercase tracking-wide text-gray-500">Gastos creados</p>
-                    <p className="mt-2 font-semibold text-black">{myCreatedExpensesCount}</p>
-                  </div>
-                  <div className="rounded-2xl bg-gray-50 p-4">
-                    <p className="text-xs uppercase tracking-wide text-gray-500">Colega más frecuente</p>
-                    <p className="mt-2 font-semibold text-black">
-                      {topSharedFriend ? `${getUserName(topSharedFriend.friendId)} (${topSharedFriend.count})` : "Sin datos"}
-                    </p>
+                </div>
+
+                <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+                  <h3 className="text-xl font-bold text-black">Tus estadísticas</h3>
+
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                    <div className="rounded-2xl bg-gray-50 p-4">
+                      <p className="text-xs uppercase tracking-wide text-gray-500">Amigos</p>
+                      <p className="mt-2 text-2xl font-black text-black">{friendList.length}</p>
+                    </div>
+                    <div className="rounded-2xl bg-gray-50 p-4">
+                      <p className="text-xs uppercase tracking-wide text-gray-500">Grupos</p>
+                      <p className="mt-2 text-2xl font-black text-black">{myGroupsCount}</p>
+                    </div>
+                    <div className="rounded-2xl bg-gray-50 p-4">
+                      <p className="text-xs uppercase tracking-wide text-gray-500">Gastos creados</p>
+                      <p className="mt-2 text-2xl font-black text-black">{myCreatedExpensesCount}</p>
+                    </div>
+                    <div className="rounded-2xl bg-gray-50 p-4">
+                      <p className="text-xs uppercase tracking-wide text-gray-500">Colega más frecuente</p>
+                      <p className="mt-2 font-semibold text-black">
+                        {topSharedFriend ? `${getUserName(topSharedFriend.friendId)} (${topSharedFriend.count})` : "Sin datos"}
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-                <h3 className="text-xl font-bold text-black">Actividad reciente</h3>
-                <div className="mt-4 space-y-3">
-                  {recentActivity.length === 0 ? (
-                    <div className="rounded-2xl bg-gray-50 p-4 text-sm text-gray-500">
-                      Todavía no tienes actividad reciente.
-                    </div>
-                  ) : (
-                    recentActivity.map((expense) => (
-                      <div key={expense.id} className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <p className="font-semibold text-black">{expense.title}</p>
-                            <p className="mt-1 text-sm text-gray-600">
-                              {expense.amount}€ · {getGroupName(expense.group_id)}
-                            </p>
-                            <p className="text-xs text-gray-500">{formatDate(expense.created_at)}</p>
-                          </div>
-                          <div className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-black shadow-sm">
-                            {expense.group_id ? "Grupo" : "Directo"}
+              <div className="grid gap-6">
+                <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+                  <h3 className="text-xl font-bold text-black">Actividad reciente</h3>
+                  <div className="mt-4 space-y-3">
+                    {recentActivity.length === 0 ? (
+                      <div className="rounded-2xl bg-gray-50 p-4 text-sm text-gray-500">
+                        Todavía no tienes actividad reciente.
+                      </div>
+                    ) : (
+                      recentActivity.map((expense) => (
+                        <div key={expense.id} className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex items-start gap-3">
+                              {renderAvatar(expense.paid_by, getUserName(expense.paid_by), "h-11 w-11", "text-sm")}
+                              <div>
+                                <p className="font-semibold text-black">{expense.title}</p>
+                                <p className="mt-1 text-sm text-gray-600">
+                                  {expense.amount}€ · {getGroupName(expense.group_id)}
+                                </p>
+                                <p className="text-xs text-gray-500">
+                                  Pagó {getUserName(expense.paid_by)} · {formatDate(expense.created_at)}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-black shadow-sm">
+                              {expense.group_id ? "Grupo" : "Directo"}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))
-                  )}
+                      ))
+                    )}
+                  </div>
                 </div>
 
-                <div className="mt-5 rounded-2xl bg-black p-5 text-white">
+                <div className="rounded-2xl bg-black p-5 text-white shadow-sm">
                   <p className="text-sm uppercase tracking-wide text-white/60">Estado actual</p>
-                  <p className="mt-2 text-xl font-black">
+                  <p className="mt-2 text-2xl font-black">
                     {netBalance >= 0 ? "Vas ganando la batalla del Bizum" : "Te toca recuperar terreno"}
                   </p>
                   <p className="mt-2 text-sm text-white/75">
