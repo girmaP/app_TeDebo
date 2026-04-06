@@ -2186,7 +2186,7 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
   }
 
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top,_#f8fafc,_#eef2ff_35%,_#ffffff_70%)] p-6">
+    <main className="min-h-screen bg-[radial-gradient(circle_at_top,_#f8fafc,_#eef2ff_35%,_#ffffff_70%)] px-4 py-4 sm:px-5 sm:py-5 lg:p-6">
       {toast && <div className="fixed bottom-6 right-6 z-[80] rounded-xl bg-black px-4 py-3 text-white shadow-2xl">{toast}</div>}
       {actionFlash && (
         <div className="pointer-events-none fixed right-6 top-24 z-[85] rounded-2xl bg-white px-5 py-4 text-black shadow-2xl">
@@ -2202,10 +2202,10 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
       </div>
 
       <div className="mx-auto max-w-6xl relative">
-        <div className="mb-5 flex justify-between items-center flex-wrap gap-3">
+        <div className="mb-4 flex items-center justify-between gap-3 flex-wrap">
           <button
             onClick={() => setScreen("home")}
-            className="flex items-center gap-3 rounded-2xl transition-all hover:scale-[1.02] active:scale-[0.98]"
+            className="flex items-center gap-2 sm:gap-3 rounded-2xl transition-all hover:scale-[1.02] active:scale-[0.98]"
             title="Volver a inicio"
           >
             {renderAvatar(
@@ -2221,11 +2221,11 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
             </div>
           </button>
 
-          <div className="flex gap-2 flex-wrap items-center">
+          <div className="flex gap-2 flex-wrap items-center justify-end w-full sm:w-auto">
             <div className="relative">
-              <button onClick={() => setMenuOpen(!menuOpen)} className="px-4 py-2 rounded-xl bg-white border border-gray-200">☰</button>
+              <button onClick={() => setMenuOpen(!menuOpen)} className="px-4 py-3 rounded-xl bg-white border border-gray-200 text-base">☰</button>
               {menuOpen && (
-                <div className="absolute right-0 mt-2 w-40 bg-white border rounded-xl shadow-lg z-50">
+                <div className="absolute right-0 mt-2 w-44 bg-white border rounded-xl shadow-lg z-50">
                   {menuItems.map((item) => (
                     <button
                       key={item}
@@ -2322,7 +2322,7 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
                 await supabase.auth.signOut()
                 setUser(null)
               }}
-              className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg shadow"
+              className="bg-red-500 hover:bg-red-600 text-white px-4 py-3 rounded-xl shadow text-base"
             >
               Cerrar sesión
             </button>
@@ -2330,8 +2330,8 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
         </div>
 
         {screen === "home" && (
-          <div className="mx-auto flex max-w-6xl animate-[fadeIn_.35s_ease] flex-col gap-6">
-            <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-zinc-900 via-slate-800 to-black p-8 text-white shadow-2xl">
+          <div className="mx-auto flex max-w-6xl animate-[fadeIn_.35s_ease] flex-col gap-5">
+            <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-zinc-900 via-slate-800 to-black p-5 sm:p-6 lg:p-8 text-white shadow-2xl">
               <div className="absolute -top-6 -left-6 h-24 w-24 rounded-full bg-white/10 blur-2xl" />
               <div className="absolute top-10 right-6 h-20 w-20 rounded-full bg-green-400/20 blur-2xl" />
               <div className="absolute bottom-0 left-1/3 h-24 w-24 rounded-full bg-red-400/20 blur-2xl" />
@@ -2342,7 +2342,7 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
                     Bienvenido al rincón de las cuentas pendientes
                   </div>
 
-                  <h2 className="text-4xl font-black leading-tight sm:text-5xl">
+                  <h2 className="text-3xl font-black leading-tight sm:text-4xl lg:text-5xl">
                     Si estás aquí,
                     <br />
                     <span className="text-green-300">alguien te debe pasta.</span>
@@ -2358,7 +2358,7 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
                     <div className="rounded-2xl bg-white/10 px-4 py-2 text-sm backdrop-blur">Historial y morosos</div>
                   </div>
 
-                  <div className="grid gap-3 sm:grid-cols-3">
+                  <div className="grid gap-3 grid-cols-1 sm:grid-cols-3">
                     <div className="rounded-2xl bg-white/10 p-3">
                       <p className="text-xs uppercase tracking-wide text-white/60">Colegas</p>
                       <p className="mt-2 text-2xl font-black">{friendList.length}</p>
@@ -2373,7 +2373,7 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
                     </div>
                   </div>
 
-                  <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
                     <div className="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur">
                       <p className="text-xs uppercase tracking-wide text-white/60">Top pagador del mes</p>
                       <p className="mt-2 text-lg font-black">
@@ -2420,7 +2420,7 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
                   <button onClick={() => setShowGuide(false)} className="rounded-xl bg-black px-4 py-2 text-sm font-semibold text-white">Cerrar</button>
                 </div>
 
-                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                   {[
                     ["1", "👤", "Crea cuenta", "Entra y deja lista tu cuenta."],
                     ["2", "📩", "Invita amigos", "Que se registren con el mismo correo."],
@@ -2437,7 +2437,7 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
               </div>
             )}
 
-            <div className="rounded-3xl border border-emerald-200 bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-500 p-6 text-white shadow-2xl">
+            <div className="rounded-3xl border border-emerald-200 bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-500 p-4 sm:p-5 lg:p-6 text-white shadow-2xl">
               <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                 <div className="max-w-2xl">
                   <div className="inline-flex w-fit items-center rounded-full bg-white/15 px-3 py-1 text-sm font-semibold backdrop-blur">📩 Trae a tu gente</div>
@@ -2456,7 +2456,7 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
                       placeholder="colega@correo.com"
                       value={name}
                       onChange={(e) => setName(e.target.value)}
-                      className="w-full rounded-xl border border-white/20 bg-white/90 p-3 text-black outline-none"
+                      className="w-full rounded-xl border border-white/20 bg-white/90 p-3 text-base text-black outline-none"
                     />
                     <button onClick={addUser} className="rounded-xl bg-black px-5 py-3 font-semibold text-white transition-all hover:scale-105 active:scale-95">
                       Enviar invitación
@@ -2467,7 +2467,7 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
               </div>
             </div>
 
-            <div className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
+            <div className="rounded-3xl border border-gray-200 bg-white p-4 sm:p-5 shadow-sm">
               <div className="mb-4 flex items-center justify-between">
                 <div>
                   <h3 className="text-lg font-bold text-black">Actividad y avisos</h3>
@@ -2498,15 +2498,15 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
               </div>
             </div>
 
-            <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
-              <div className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
+            <div className="grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
+              <div className="rounded-3xl border border-gray-200 bg-white p-4 sm:p-5 shadow-sm">
                 <div className="mb-3 flex items-center justify-between">
                   <div>
                     <h3 className="text-lg font-bold text-black">Centro de minijuegos</h3>
                     <p className="text-sm text-gray-500">Juega en pantalla completa y métele presión al drama financiero.</p>
                   </div>
 
-                  <button onClick={() => setShowGamesMenu((prev) => !prev)} className="rounded-xl bg-black px-4 py-3 text-white transition-all hover:scale-105 active:scale-95">
+                  <button onClick={() => setShowGamesMenu((prev) => !prev)} className="rounded-xl bg-black px-4 py-3 text-white text-base transition-all hover:scale-105 active:scale-95">
                     {showGamesMenu ? "Ocultar" : "Más minijuegos"}
                   </button>
                 </div>
@@ -2549,7 +2549,7 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
                 )}
               </div>
 
-              <div className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
+              <div className="rounded-3xl border border-gray-200 bg-white p-4 sm:p-5 shadow-sm">
                 <div className="mb-4 flex items-center justify-between">
                   <div>
                     <h3 className="text-lg font-bold text-black">Quién pagó más</h3>
@@ -2586,7 +2586,7 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
 
         {screen === "amigos" && (
           <div className="mx-auto flex max-w-4xl animate-[fadeIn_.35s_ease] flex-col gap-6">
-            <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+            <div className="rounded-2xl border border-gray-200 bg-white p-4 sm:p-5 shadow-sm">
               <h2 className="text-2xl font-semibold text-black">Colegas</h2>
               <p className="mt-1 text-sm text-gray-500">Aquí ves el balance global contigo y cada colega, con su nivel de confianza incluido.</p>
 
@@ -2617,7 +2617,7 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
                             {balance < 0 && (
                               <button
                                 onClick={() => requestFriendSettlement(friend.id, balance)}
-                                className="rounded-xl bg-emerald-600 px-4 py-3 text-white transition-all hover:scale-105 active:scale-95"
+                                className="rounded-xl bg-emerald-600 px-4 py-3 text-white text-base transition-all hover:scale-105 active:scale-95"
                               >
                                 Solicitar confirmación
                               </button>
@@ -2627,7 +2627,7 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
                               <>
                                 <button
                                   onClick={() => handleClaimFriendPayment(friend.id, balance)}
-                                  className="rounded-xl bg-amber-500 px-4 py-3 text-white transition-all hover:scale-105 active:scale-95"
+                                  className="rounded-xl bg-amber-500 px-4 py-3 text-white text-base transition-all hover:scale-105 active:scale-95"
                                 >
                                   Reclamar pago
                                 </button>
@@ -2645,7 +2645,7 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
                                       )
                                       if (request) confirmFriendSettlement(request)
                                     }}
-                                    className="rounded-xl bg-sky-600 px-4 py-3 text-white transition-all hover:scale-105 active:scale-95"
+                                    className="rounded-xl bg-sky-600 px-4 py-3 text-white text-base transition-all hover:scale-105 active:scale-95"
                                   >
                                     Confirmar pago
                                   </button>
@@ -2653,7 +2653,7 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
                               </>
                             )}
 
-                            <button onClick={() => openFriendExpense(friend.id)} className="rounded-xl bg-black px-4 py-3 text-white transition-all hover:scale-105 active:scale-95">
+                            <button onClick={() => openFriendExpense(friend.id)} className="rounded-xl bg-black px-4 py-3 text-white text-base transition-all hover:scale-105 active:scale-95">
                               Añadir gasto directo
                             </button>
                           </div>
@@ -2718,7 +2718,7 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
 
         {screen === "gastos" && (
           <div className="mx-auto flex max-w-4xl animate-[fadeIn_.35s_ease] flex-col gap-6">
-            <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+            <div className="rounded-2xl border border-gray-200 bg-white p-4 sm:p-5 shadow-sm">
               <div className="mb-4 flex items-center justify-between">
                 <div>
                   <h2 className="text-2xl font-semibold text-black">Añadir gasto</h2>
@@ -2744,7 +2744,7 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
                 ))}
               </div>
 
-              <div className="grid gap-6 lg:grid-cols-[1fr_0.9fr]">
+              <div className="grid gap-4 lg:grid-cols-[1fr_0.9fr]">
                 <div>
                   <div className="mt-3 flex gap-2">
                     <button
@@ -2768,16 +2768,16 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
                     </button>
                   </div>
 
-                  <input placeholder="Concepto (ej: cena)" value={expenseTitle} onChange={(e) => setExpenseTitle(e.target.value)} className="mt-3 w-full rounded-lg border border-gray-300 p-3 text-black outline-none" />
-                  <input type="number" placeholder="Cantidad total" value={amount} onChange={(e) => setAmount(e.target.value)} className="mt-3 w-full rounded-lg border border-gray-300 p-3 text-black outline-none" />
+                  <input placeholder="Concepto (ej: cena)" value={expenseTitle} onChange={(e) => setExpenseTitle(e.target.value)} className="mt-3 w-full rounded-lg border border-gray-300 p-3 text-base text-black outline-none" />
+                  <input type="number" placeholder="Cantidad total" value={amount} onChange={(e) => setAmount(e.target.value)} className="mt-3 w-full rounded-lg border border-gray-300 p-3 text-base text-black outline-none" />
 
                   {expenseMode === "group" ? (
-                    <select value={expenseGroupId} onChange={(e) => { setExpenseGroupId(e.target.value); setPaidBy(""); setCustomSplits({}) }} className="mt-3 w-full rounded-lg border border-gray-300 p-3 text-black outline-none">
+                    <select value={expenseGroupId} onChange={(e) => { setExpenseGroupId(e.target.value); setPaidBy(""); setCustomSplits({}) }} className="mt-3 w-full rounded-lg border border-gray-300 p-3 text-base text-black outline-none">
                       <option value="">Grupo</option>
                       {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
                     </select>
                   ) : (
-                    <select value={selectedFriendId} onChange={(e) => { setSelectedFriendId(e.target.value); setPaidBy(currentAppUser?.id || ""); setCustomSplits({}) }} className="mt-3 w-full rounded-lg border border-gray-300 p-3 text-black outline-none">
+                    <select value={selectedFriendId} onChange={(e) => { setSelectedFriendId(e.target.value); setPaidBy(currentAppUser?.id || ""); setCustomSplits({}) }} className="mt-3 w-full rounded-lg border border-gray-300 p-3 text-base text-black outline-none">
                       <option value="">Amigo</option>
                       {friendList.map((friend) => <option key={friend.id} value={friend.id}>{friend.name}</option>)}
                     </select>
@@ -2841,7 +2841,7 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
               </div>
             </div>
 
-            <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+            <div className="rounded-2xl border border-gray-200 bg-white p-4 sm:p-5 shadow-sm">
               <h2 className="text-xl font-semibold text-black">Miembros por grupo</h2>
               <div className="mt-3 flex flex-col gap-4">
                 {groupsWithMembers.length === 0 ? (
@@ -2902,7 +2902,7 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
 
         {screen === "balances" && (
           <div className="mx-auto flex max-w-4xl animate-[fadeIn_.35s_ease] flex-col gap-6">
-            <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+            <div className="rounded-2xl border border-gray-200 bg-white p-4 sm:p-5 shadow-sm">
               <h2 className="text-xl font-semibold text-black">Balances por grupo</h2>
               <p className="mt-1 text-sm text-gray-500">Visual más claro para entender quién debe y cuánto.</p>
 
@@ -3011,7 +3011,7 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
                 </button>
               </div>
             )}
-            <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+            <div className="rounded-2xl border border-gray-200 bg-white p-4 sm:p-5 shadow-sm">
               <div className="flex items-start justify-between gap-3">
                 <button onClick={() => setShowExpenseHistory((prev) => !prev)} className="flex w-full items-center justify-between text-left">
                   <div>
@@ -3068,7 +3068,7 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
               )}
             </div>
 
-            <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+            <div className="rounded-2xl border border-gray-200 bg-white p-4 sm:p-5 shadow-sm">
               <div className="flex items-start justify-between gap-3">
                 <button onClick={() => setShowSettledHistory((prev) => !prev)} className="flex w-full items-center justify-between text-left">
                   <div>
@@ -3127,13 +3127,13 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
 
         {screen === "moroso" && (
           <div className="mx-auto flex max-w-4xl animate-[fadeIn_.35s_ease] flex-col gap-6">
-            <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+            <div className="rounded-2xl border border-gray-200 bg-white p-4 sm:p-5 shadow-sm">
               <h2 className="mb-3 text-xl font-semibold text-black">Moroso del mes</h2>
 
               {!moroso ? (
                 <p className="text-green-600">No hay morosos. Hoy la peña se ha portado.</p>
               ) : (
-                <div className="grid gap-6 lg:grid-cols-[1fr_0.9fr]">
+                <div className="grid gap-4 lg:grid-cols-[1fr_0.9fr]">
                   <div className="rounded-2xl bg-gradient-to-br from-red-500 to-black p-6 text-white shadow-xl">
                     <div className="flex items-center gap-4">
                       {renderAvatar(moroso.friendId, getUserName(moroso.friendId), "h-16 w-16", "text-lg")}
@@ -3201,7 +3201,7 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
                   </div>
                 </div>
 
-                <div className="grid gap-3 sm:grid-cols-2">
+                <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
                   <div className="rounded-2xl bg-white/10 p-4 backdrop-blur">
                     <p className="text-xs uppercase tracking-wide text-white/60">Colega más frecuente</p>
                     <p className="mt-2 text-lg font-black">
@@ -3317,7 +3317,7 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
                     setProfileAvatarUrl(currentAppUser?.avatar_url || "")
                     setIsEditingProfile(true)
                   }}
-                  className="rounded-xl bg-black px-4 py-3 text-white transition-all hover:scale-105 active:scale-95"
+                  className="rounded-xl bg-black px-4 py-3 text-white text-base transition-all hover:scale-105 active:scale-95"
                 >
                   Editar perfil
                 </button>
@@ -3336,8 +3336,8 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
 
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+            <div className="grid gap-3 md:grid-cols-2">
+              <div className="rounded-2xl border border-gray-200 bg-white p-4 sm:p-5 shadow-sm">
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="text-lg font-bold text-black">Ranking del mes</h3>
@@ -3367,7 +3367,7 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+              <div className="rounded-2xl border border-gray-200 bg-white p-4 sm:p-5 shadow-sm">
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="text-lg font-bold text-black">Confirmaciones pendientes</h3>
@@ -3395,7 +3395,7 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
               </div>
             </div>
 
-<div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+<div className="rounded-2xl border border-gray-200 bg-white p-4 sm:p-5 shadow-sm">
                 <p className="text-xs uppercase tracking-wide text-gray-500">Total pagado</p>
                 <p className="mt-2 text-3xl font-black text-black">{totalPaid.toFixed(2)}€</p>
                 <p className="mt-1 text-xs text-gray-500">Lo que has adelantado tú</p>
@@ -3410,7 +3410,7 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
                 <p className="mt-2 text-3xl font-black text-red-600">{totalYouOwe.toFixed(2)}€</p>
                 <p className="mt-1 text-xs text-red-700/80">Pendiente de pagar</p>
               </div>
-              <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+              <div className="rounded-2xl border border-gray-200 bg-white p-4 sm:p-5 shadow-sm">
                 <p className="text-xs uppercase tracking-wide text-gray-500">Balance neto</p>
                 <p className={`mt-2 text-3xl font-black ${netBalance >= 0 ? "text-emerald-600" : "text-red-600"}`}>
                   {netBalance.toFixed(2)}€
@@ -3421,7 +3421,7 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
 
             <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
               <div className="grid gap-6">
-                <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+                <div className="rounded-2xl border border-gray-200 bg-white p-4 sm:p-5 shadow-sm">
                   <h3 className="text-xl font-bold text-black">Datos del usuario</h3>
 
                   <div className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -3444,7 +3444,7 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
                   </div>
                 </div>
 
-                <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+                <div className="rounded-2xl border border-gray-200 bg-white p-4 sm:p-5 shadow-sm">
                   <h3 className="text-xl font-bold text-black">Tus estadísticas</h3>
 
                   <div className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -3471,7 +3471,7 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
               </div>
 
               <div className="grid gap-6">
-                <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+                <div className="rounded-2xl border border-gray-200 bg-white p-4 sm:p-5 shadow-sm">
                   <h3 className="text-xl font-bold text-black">Actividad reciente</h3>
                   <div className="mt-4 space-y-3">
                     {recentActivity.length === 0 ? (
@@ -3521,7 +3521,7 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
         )}
 
       {showGameFullscreen && activeGame && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black px-4 py-4">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/95 px-2 py-2 sm:px-4 sm:py-4">
           <div className="relative h-full w-full overflow-hidden rounded-none bg-gradient-to-br from-zinc-950 via-slate-900 to-black text-white md:rounded-3xl">
             <div className="absolute inset-0 opacity-60">
               <div className="absolute left-10 top-10 h-32 w-32 rounded-full bg-emerald-400/20 blur-3xl animate-pulse" />
@@ -3610,7 +3610,7 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
                         <p className="mt-2 text-sm text-gray-600">Cuando se iluminen los números, guárdalos. Luego púlsalos en el mismo orden.</p>
                       </div>
 
-                      <div className="grid gap-4 sm:grid-cols-2">
+                      <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
                         {[0, 1, 2, 3].map((value) => (
                           <button key={value} onClick={() => pressMemory(value)} className={`grid h-28 w-28 place-items-center rounded-3xl text-3xl font-black shadow-xl transition-all ${memoryFlash === value ? "bg-black text-white scale-110" : "bg-white text-black"}`}>
                             {value + 1}
@@ -3670,7 +3670,7 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
 
       {tagModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-          <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl">
+          <div className="w-full max-w-md rounded-3xl bg-white p-4 sm:p-6 shadow-2xl">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className={`inline-flex rounded-full px-3 py-2 text-sm font-semibold ${tagModal.colorClass}`}>{tagModal.label}</p>
