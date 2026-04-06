@@ -9,10 +9,9 @@ import { supabase } from "@/lib/supabase"
 type User = {
   id: string
   name: string | null
+  email?: string | null
   is_admin?: boolean
   auth_user_id?: string | null
-  ow_r_id?: string | null
-  is_pending?: boolean
   created_at?: string
 }
 
@@ -67,7 +66,6 @@ type FriendInvitation = {
   email: string
   invited_by: string
   status: string
-  token?: string
   created_at?: string
 }
 
@@ -79,15 +77,11 @@ type Friendship = {
   created_at?: string
 }
 
-type FriendBalanceItem = {
-  friendId: string
-  amount: number
-}
-
 type SplitMode = "equal" | "custom"
 type ExpenseMode = "group" | "friend"
 type Screen = "home" | "amigos" | "gastos" | "balances" | "historial" | "moroso"
 type TrustLevel = "top" | "good" | "meh" | "dodgy" | "chaos"
+type GameId = "moroso" | "reflejos" | "memoria" | "excusas" | "monedas"
 
 type TagInfo = {
   label: string
@@ -111,42 +105,73 @@ const TRUST_CONTENT: Record<
   top: {
     labels: ["Buena gente", "Bizum ninja", "De fiar", "Santo del Bizum", "No da guerra"],
     title: "Nivel de confianza alto",
-    description:
-      "Este colega suele pagar bien y no acostumbra a hacer el payaso con las deudas. De estos sí da gusto fiarse.",
+    description: "Este colega suele pagar bien y no acostumbra a hacer el payaso con las deudas.",
     colorClass: "bg-emerald-100 text-emerald-800",
     borderClass: "border-emerald-200",
   },
   good: {
     labels: ["Cumple más o menos", "Ni tan mal", "Aceptable", "Va tirando", "Medio decente"],
     title: "Nivel de confianza decente",
-    description:
-      "Normalmente responde, aunque a veces se le tiene que mirar un poco mal para que espabile.",
+    description: "Normalmente responde, aunque a veces se le tiene que mirar un poco mal para que espabile.",
     colorClass: "bg-sky-100 text-sky-800",
     borderClass: "border-sky-200",
   },
   meh: {
     labels: ["Va lento", "Hay que recordarle", "Pagador perezoso", "Necesita presión", "Se hace rogar"],
     title: "Nivel de confianza medio",
-    description:
-      "No es de los peores, pero tampoco de los que te dan paz. Suele pagar... cuando le aprietas.",
+    description: "No es de los peores, pero tampoco de los que te dan paz. Suele pagar cuando le aprietas.",
     colorClass: "bg-amber-100 text-amber-800",
     borderClass: "border-amber-200",
   },
   dodgy: {
     labels: ["Se hace el loco", "Bizum fantasma", "Te está toreando", "Promesas y cero pagos", "Moroso en prácticas"],
     title: "Nivel de confianza bajo",
-    description:
-      "Aquí ya empieza el festival de excusas. Mucho 'luego te paso' y poco soltar la pasta.",
+    description: "Aquí ya empieza el festival de excusas. Mucho luego te paso y poco soltar la pasta.",
     colorClass: "bg-orange-100 text-orange-800",
     borderClass: "border-orange-200",
   },
   chaos: {
     labels: ["Gorra legendaria", "Rata premium", "Moroso profesional", "El desaparecido", "Debe hasta el saludo"],
     title: "Nivel de confianza nefasto",
-    description:
-      "Este cabrón ya está en nivel histórico. Si paga, se celebra como festivo nacional.",
+    description: "Este cabrón ya está en nivel histórico. Si paga, se celebra como festivo nacional.",
     colorClass: "bg-red-100 text-red-800",
     borderClass: "border-red-200",
+  },
+}
+
+const GAME_INFO: Record<
+  GameId,
+  { title: string; icon: string; subtitle: string; description: string }
+> = {
+  moroso: {
+    title: "A por el moroso",
+    icon: "💸",
+    subtitle: "Haz click antes de que se escape.",
+    description: "El clásico. Cuanto más rápido vayas, más pasta le rascas.",
+  },
+  reflejos: {
+    title: "Reflejos Bizum",
+    icon: "⚡",
+    subtitle: "Pulsa solo los cobros buenos.",
+    description: "Si tocas una trampa, pierdes ritmo. Ideal para manos rápidas.",
+  },
+  memoria: {
+    title: "Memoria de deudas",
+    icon: "🧠",
+    subtitle: "Recuerda la secuencia.",
+    description: "Mira el orden, memorízalo y repítelo para recuperar dinero.",
+  },
+  excusas: {
+    title: "Caza excusas",
+    icon: "😑",
+    subtitle: "Encuentra el pago real.",
+    description: "Entre tantas excusas, solo una opción es cobrar de verdad.",
+  },
+  monedas: {
+    title: "Lluvia de monedas",
+    icon: "🪙",
+    subtitle: "Caza monedas, evita trampas.",
+    description: "Haz click en monedas y no toques las trampas o pierdes puntos.",
   },
 }
 
@@ -192,22 +217,50 @@ export default function Home() {
   const [password, setPassword] = useState("")
   const [screen, setScreen] = useState<Screen>("home")
   const [menuOpen, setMenuOpen] = useState(false)
-const menuItems: Screen[] = ["amigos", "gastos", "balances", "historial", "moroso"]
+  const menuItems: Screen[] = ["amigos", "gastos", "balances", "historial", "moroso"]
 
-  const [gameRunning, setGameRunning] = useState(false)
-  const [showGameFullscreen, setShowGameFullscreen] = useState(false)
-  const [gameTimeLeft, setGameTimeLeft] = useState(12)
-  const [gamePressure, setGamePressure] = useState(0)
-  const [gameCash, setGameCash] = useState(0)
-  const [gameMessage, setGameMessage] = useState("")
-  const [morosoPosition, setMorosoPosition] = useState({ x: 35, y: 32 })
-  const [coinBursts, setCoinBursts] = useState<{ id: number; x: number; y: number; value: number }[]>([])
-  const [gameRound, setGameRound] = useState(0)
   const [loading, setLoading] = useState(false)
   const [nombre, setNombre] = useState("")
   const [apellidos, setApellidos] = useState("")
   const [authMode, setAuthMode] = useState<"login" | "register">("login")
   const [tagModal, setTagModal] = useState<TagInfo | null>(null)
+  const [toast, setToast] = useState("")
+
+  const [showGuide, setShowGuide] = useState(true)
+  const [showGamesMenu, setShowGamesMenu] = useState(false)
+  const [activeGame, setActiveGame] = useState<GameId | null>(null)
+  const [showGameFullscreen, setShowGameFullscreen] = useState(false)
+
+  const [gameTimeLeft, setGameTimeLeft] = useState(12)
+  const [gameRunning, setGameRunning] = useState(false)
+  const [gameMessage, setGameMessage] = useState("")
+  const [gameCash, setGameCash] = useState(0)
+  const [gamePressure, setGamePressure] = useState(0)
+
+  const [morosoPosition, setMorosoPosition] = useState({ x: 35, y: 32 })
+  const [coinBursts, setCoinBursts] = useState<{ id: number; x: number; y: number; value: number }[]>([])
+  const [gameRound, setGameRound] = useState(0)
+
+  const [reflexTiles, setReflexTiles] = useState<
+    { id: number; kind: "money" | "trap"; value: number }[]
+  >([])
+
+  const [memorySequence, setMemorySequence] = useState<number[]>([])
+  const [memoryInput, setMemoryInput] = useState<number[]>([])
+  const [memoryShowing, setMemoryShowing] = useState(false)
+  const [memoryFlash, setMemoryFlash] = useState<number | null>(null)
+
+  const [excuseOptions, setExcuseOptions] = useState<string[]>([])
+  const [excuseCorrectIndex, setExcuseCorrectIndex] = useState(0)
+
+  const [coinRainItems, setCoinRainItems] = useState<
+    { id: number; kind: "coin" | "trap"; left: number; top: number; value: number }[]
+  >([])
+
+  const showToast = (message: string) => {
+    setToast(message)
+    setTimeout(() => setToast(""), 2200)
+  }
 
   useEffect(() => {
     const getUser = async () => {
@@ -252,41 +305,32 @@ const menuItems: Screen[] = ["amigos", "gastos", "balances", "historial", "moros
   }, [currentAppUser])
 
   const ensureCurrentAppUserProfile = async () => {
-  if (!user) return
+    if (!user) return
 
-  const { data: existing, error: existingError } = await supabase
-    .from("users")
-    .select("*")
-    .eq("auth_user_id", user.id)
-    .maybeSingle()
+    const { data: existing, error: existingError } = await supabase
+      .from("users")
+      .select("*")
+      .eq("auth_user_id", user.id)
+      .maybeSingle()
 
-  if (existingError) {
-    console.log("Error buscando usuario actual:", existingError)
-    return
+    if (existingError) return
+    if (existing) return
+
+    const displayName =
+      [user.user_metadata?.nombre, user.user_metadata?.apellidos]
+        .filter(Boolean)
+        .join(" ")
+        .trim() ||
+      user.email?.split("@")[0] ||
+      "Usuario"
+
+    await supabase.from("users").insert({
+      name: displayName,
+      auth_user_id: user.id,
+      owner_id: user.id,
+      email: user.email?.toLowerCase() || null,
+    })
   }
-
-  if (existing) return
-
-  const displayName =
-    [user.user_metadata?.nombre, user.user_metadata?.apellidos]
-      .filter(Boolean)
-      .join(" ")
-      .trim() ||
-    user.email?.split("@")[0] ||
-    "Usuario"
-
-  const { error: insertError } = await supabase.from("users").insert({
-    name: displayName,
-    auth_user_id: user.id,
-    owner_id: user.id,
-    email: user.email?.toLowerCase() || null,
-  })
-
-  if (insertError) {
-    console.log("Error creando perfil de usuario:", insertError)
-  }
-}
-
 
   const loadAll = async () => {
     await Promise.all([
@@ -300,9 +344,7 @@ const menuItems: Screen[] = ["amigos", "gastos", "balances", "historial", "moros
     ])
   }
 
-  const isAdmin = useMemo(() => {
-    return currentAppUser?.is_admin || false
-  }, [currentAppUser])
+  const isAdmin = useMemo(() => currentAppUser?.is_admin || false, [currentAppUser])
 
   const getUsers = async () => {
     const { data } = await supabase.from("users").select("*").order("created_at", { ascending: false })
@@ -311,85 +353,71 @@ const menuItems: Screen[] = ["amigos", "gastos", "balances", "historial", "moros
 
   const getGroups = async () => {
     if (!user) return
-
     const { data } = await supabase
       .from("groups")
       .select("*")
       .or(`owner_id.eq.${user.id},owner_id.is.null`)
       .order("created_at", { ascending: false })
-
     if (data) setGroups(data as Group[])
   }
 
   const getGroupMembers = async () => {
     if (!user) return
-
     const { data } = await supabase
       .from("group_members")
       .select("*")
       .or(`owner_id.eq.${user.id},owner_id.is.null`)
       .order("created_at", { ascending: false })
-
     if (data) setGroupMembers(data as GroupMember[])
   }
 
   const getExpenses = async () => {
     if (!user) return
-
     const { data } = await supabase
       .from("expenses")
       .select("*")
       .or(`owner_id.eq.${user.id},owner_id.is.null`)
       .order("created_at", { ascending: false })
-
     if (data) setExpenses(data as Expense[])
   }
 
   const getExpenseSplits = async () => {
     if (!user) return
-
     const { data } = await supabase
       .from("expense_splits")
       .select("*")
       .or(`owner_id.eq.${user.id},owner_id.is.null`)
-
     if (data) setExpenseSplits(data as ExpenseSplit[])
   }
 
   const getReceivedInvitations = async () => {
     if (!user?.email) return
-
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from("friend_invitations")
       .select("*")
       .eq("email", user.email.toLowerCase())
       .in("status", ["pending", "accepted"])
       .order("created_at", { ascending: false })
-
-    if (!error && data) setReceivedInvitations(data as FriendInvitation[])
+    if (data) setReceivedInvitations(data as FriendInvitation[])
   }
 
   const getSentInvitations = async () => {
     if (!user) return
-
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from("friend_invitations")
       .select("*")
       .eq("invited_by", user.id)
       .order("created_at", { ascending: false })
-
-    if (!error && data) setSentInvitations(data as FriendInvitation[])
+    if (data) setSentInvitations(data as FriendInvitation[])
   }
 
   const getFriendships = async () => {
     if (!currentAppUser) return
-
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from("friendships")
       .select("*")
       .eq("user_id", currentAppUser.id)
-
-    if (!error && data) setFriendships(data as Friendship[])
+    if (data) setFriendships(data as Friendship[])
   }
 
   const addUser = async () => {
@@ -431,7 +459,6 @@ const menuItems: Screen[] = ["amigos", "gastos", "balances", "historial", "moros
 
     if (error) {
       alert("Error al enviar invitación")
-      console.log(error)
       return
     }
 
@@ -440,15 +467,13 @@ const menuItems: Screen[] = ["amigos", "gastos", "balances", "historial", "moros
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        email: normalizedEmail,
-      }),
+      body: JSON.stringify({ email: normalizedEmail }),
     })
 
     if (!res.ok) {
       alert("La invitación se guardó, pero el correo no pudo enviarse")
     } else {
-      alert("Invitación enviada. Cuando la otra persona entre con ese correo podrá aceptarla.")
+      showToast("Invitación enviada 🚀")
     }
 
     setName("")
@@ -458,13 +483,13 @@ const menuItems: Screen[] = ["amigos", "gastos", "balances", "historial", "moros
   const acceptInvitation = async (invitation: FriendInvitation) => {
     if (!user || !currentAppUser) return
 
-    const { data: senderAppUser, error: senderError } = await supabase
+    const { data: senderAppUser } = await supabase
       .from("users")
       .select("*")
       .eq("auth_user_id", invitation.invited_by)
       .single()
 
-    if (senderError || !senderAppUser) {
+    if (!senderAppUser) {
       alert("No se encontró al usuario que envió la invitación")
       return
     }
@@ -487,17 +512,12 @@ const menuItems: Screen[] = ["amigos", "gastos", "balances", "historial", "moros
 
       if (friendshipError) {
         alert("Error creando la amistad")
-        console.log(friendshipError)
         return
       }
     }
 
-    await supabase
-      .from("friend_invitations")
-      .update({ status: "accepted" })
-      .eq("id", invitation.id)
-
-    alert("Amigo añadido correctamente")
+    await supabase.from("friend_invitations").update({ status: "accepted" }).eq("id", invitation.id)
+    showToast("Amigo añadido correctamente")
     await getReceivedInvitations()
     await getFriendships()
   }
@@ -505,7 +525,7 @@ const menuItems: Screen[] = ["amigos", "gastos", "balances", "historial", "moros
   const addGroup = async () => {
     if (!groupName.trim() || !user || !currentAppUser) return
 
-    const { data: createdGroup, error } = await supabase
+    const { data: createdGroup } = await supabase
       .from("groups")
       .insert({
         name: groupName.trim(),
@@ -514,7 +534,7 @@ const menuItems: Screen[] = ["amigos", "gastos", "balances", "historial", "moros
       .select()
       .single()
 
-    if (error || !createdGroup) {
+    if (!createdGroup) {
       alert("Error creando grupo")
       return
     }
@@ -526,6 +546,7 @@ const menuItems: Screen[] = ["amigos", "gastos", "balances", "historial", "moros
     })
 
     setGroupName("")
+    showToast("Grupo creado ✅")
     await getGroups()
     await getGroupMembers()
     await buildGroupsWithMembers()
@@ -558,6 +579,7 @@ const menuItems: Screen[] = ["amigos", "gastos", "balances", "historial", "moros
 
     setSelectedUserId("")
     setSelectedGroupId("")
+    showToast("Colega añadido al grupo 👌")
     await getGroupMembers()
     await buildGroupsWithMembers()
   }
@@ -580,23 +602,17 @@ const menuItems: Screen[] = ["amigos", "gastos", "balances", "historial", "moros
     return friend ? [currentAppUser, friend] : []
   }, [currentAppUser, selectedFriendId, users])
 
-  const expenseParticipants =
-    expenseMode === "group" ? membersOfSelectedExpenseGroup : friendParticipants
+  const expenseParticipants = expenseMode === "group" ? membersOfSelectedExpenseGroup : friendParticipants
 
-  const getUserName = (userId: string) => {
-    const userItem = users.find((u) => u.id === userId)
-    return userItem?.name || "Usuario"
-  }
+  const getUserName = (userId: string) => users.find((u) => u.id === userId)?.name || "Usuario"
 
   const getGroupName = (groupId: string | null) => {
     if (!groupId) return "Gasto individual"
-    const group = groups.find((g) => g.id === groupId)
-    return group?.name || "Grupo"
+    return groups.find((g) => g.id === groupId)?.name || "Grupo"
   }
 
   const formatDate = (dateString?: string) => {
     if (!dateString) return "Sin fecha"
-
     return new Date(dateString).toLocaleString("es-ES", {
       day: "2-digit",
       month: "2-digit",
@@ -608,14 +624,9 @@ const menuItems: Screen[] = ["amigos", "gastos", "balances", "historial", "moros
 
   const getExpensePeopleSummary = (expenseId: string) => {
     const splits = expenseSplits.filter((split) => split.expense_id === expenseId)
-
     if (splits.length === 0) return "Sin reparto guardado"
-
     return splits
-      .map(
-        (split) =>
-          `${getUserName(split.user_id)}: ${Number(split.amount).toFixed(2)}€`
-      )
+      .map((split) => `${getUserName(split.user_id)}: ${Number(split.amount).toFixed(2)}€`)
       .join(" · ")
   }
 
@@ -645,41 +656,75 @@ const menuItems: Screen[] = ["amigos", "gastos", "balances", "historial", "moros
     setAmount("")
     setExpenseGroupId("")
     setSelectedFriendId("")
-    setPaidBy("")
+    setPaidBy(currentAppUser?.id || "")
     setSplitMode("equal")
     setCustomSplits({})
   }
 
-const startMorosoGame = () => {
-  setShowGameFullscreen(true)
-  setGameRunning(true)
-  setGameTimeLeft(12)
-  setGamePressure(0)
-  setGameCash(0)
-  setGameMessage("")
-  setCoinBursts([])
-  setGameRound((r) => r + 1)
+  const startGame = (game: GameId) => {
+    setActiveGame(game)
+    setShowGameFullscreen(true)
+    setGameRunning(true)
+    setGameTimeLeft(game === "memoria" ? 18 : 12)
+    setGamePressure(0)
+    setGameCash(0)
+    setGameMessage("")
+    setCoinBursts([])
+    setGameRound((r) => r + 1)
 
-  moveMoroso()
-}
-const closeMorosoGame = () => {
-  setShowGameFullscreen(false)
-  setGameRunning(false)
-  setGameMessage("")
-  setCoinBursts([])
-}
+    if (game === "moroso") {
+      moveMoroso()
+    }
 
+    if (game === "reflejos") {
+      setReflexTiles(
+        Array.from({ length: 9 }, (_, index) => ({
+          id: index,
+          kind: Math.random() > 0.7 ? "trap" : "money",
+          value: Math.random() > 0.7 ? -4 : Math.floor(Math.random() * 5) + 3,
+        }))
+      )
+    }
+
+    if (game === "memoria") {
+      const sequence = Array.from({ length: 4 }, () => Math.floor(Math.random() * 4))
+      setMemorySequence(sequence)
+      setMemoryInput([])
+      setMemoryShowing(true)
+      playMemorySequence(sequence)
+    }
+
+    if (game === "excusas") {
+      loadExcuseRound()
+    }
+
+    if (game === "monedas") {
+      setCoinRainItems([])
+    }
+  }
+
+  const closeGame = () => {
+    setShowGameFullscreen(false)
+    setGameRunning(false)
+    setGameMessage("")
+    setCoinBursts([])
+    setActiveGame(null)
+    setMemorySequence([])
+    setMemoryInput([])
+    setMemoryShowing(false)
+    setMemoryFlash(null)
+    setCoinRainItems([])
+    setReflexTiles([])
+  }
 
   const moveMoroso = () => {
     const x = Math.random() * 70
     const y = Math.random() * 60
-
     setMorosoPosition({ x, y })
   }
 
   const hitMoroso = () => {
     if (!gameRunning) return
-
     const gain = Math.floor(Math.random() * 8) + 3
     setGameCash((prev) => prev + gain)
     setGamePressure((prev) => prev + 15)
@@ -692,7 +737,6 @@ const closeMorosoGame = () => {
     }
 
     setCoinBursts((prev) => [...prev, burst])
-
     setTimeout(() => {
       setCoinBursts((prev) => prev.filter((b) => b.id !== burst.id))
     }, 800)
@@ -700,19 +744,134 @@ const closeMorosoGame = () => {
     moveMoroso()
   }
 
-  useEffect(() => {
+  const hitReflexTile = (tileIndex: number) => {
     if (!gameRunning) return
 
+    const tile = reflexTiles[tileIndex]
+    if (!tile) return
+
+    if (tile.kind === "money") {
+      setGameCash((prev) => prev + tile.value)
+      setGamePressure((prev) => prev + 8)
+    } else {
+      setGameCash((prev) => Math.max(prev + tile.value, 0))
+      setGamePressure((prev) => Math.max(prev - 8, 0))
+    }
+
+    setReflexTiles((prev) =>
+      prev.map((item, index) =>
+        index === tileIndex
+          ? {
+              ...item,
+              kind: Math.random() > 0.7 ? "trap" : "money",
+              value: Math.random() > 0.7 ? -4 : Math.floor(Math.random() * 5) + 3,
+            }
+          : item
+      )
+    )
+  }
+
+  const playMemorySequence = async (sequence: number[]) => {
+    for (const value of sequence) {
+      setMemoryFlash(value)
+      await new Promise((resolve) => setTimeout(resolve, 650))
+      setMemoryFlash(null)
+      await new Promise((resolve) => setTimeout(resolve, 250))
+    }
+    setMemoryShowing(false)
+  }
+
+  const pressMemory = (value: number) => {
+    if (!gameRunning || memoryShowing) return
+
+    const nextInput = [...memoryInput, value]
+    setMemoryInput(nextInput)
+
+    const currentIndex = nextInput.length - 1
+    if (memorySequence[currentIndex] !== value) {
+      setGameCash((prev) => Math.max(prev - 5, 0))
+      setGameMessage("😵 Te liaste. Vuelve a intentarlo.")
+      const sequence = Array.from({ length: 4 }, () => Math.floor(Math.random() * 4))
+      setMemorySequence(sequence)
+      setMemoryInput([])
+      setMemoryShowing(true)
+      playMemorySequence(sequence)
+      return
+    }
+
+    if (nextInput.length === memorySequence.length) {
+      const gain = 12
+      setGameCash((prev) => prev + gain)
+      setGamePressure((prev) => prev + 12)
+      const sequence = Array.from({ length: 4 }, () => Math.floor(Math.random() * 4))
+      setMemorySequence(sequence)
+      setMemoryInput([])
+      setMemoryShowing(true)
+      playMemorySequence(sequence)
+    }
+  }
+
+  const loadExcuseRound = () => {
+    const goodPayments = [
+      "Te hago Bizum ahora",
+      "Te paso el dinero ya",
+      "Listo, te acabo de pagar",
+      "Te lo mando en este momento",
+    ]
+    const excuses = [
+      "No me deja la app",
+      "Luego te paso",
+      "Estoy sin batería",
+      "Te pago mañana seguro",
+      "Ahora voy fatal",
+      "No tengo cobertura",
+      "Se me olvidó",
+      "Luego luego",
+    ]
+
+    const correct = goodPayments[Math.floor(Math.random() * goodPayments.length)]
+    const wrong1 = excuses[Math.floor(Math.random() * excuses.length)]
+    const wrong2 = excuses[Math.floor(Math.random() * excuses.length)]
+    const options = [correct, wrong1, wrong2].sort(() => Math.random() - 0.5)
+    setExcuseOptions(options)
+    setExcuseCorrectIndex(options.indexOf(correct))
+  }
+
+  const pickExcuse = (index: number) => {
+    if (!gameRunning) return
+    if (index === excuseCorrectIndex) {
+      setGameCash((prev) => prev + 10)
+      setGamePressure((prev) => prev + 10)
+    } else {
+      setGameCash((prev) => Math.max(prev - 3, 0))
+    }
+    loadExcuseRound()
+  }
+
+  const clickCoinRainItem = (id: number) => {
+    if (!gameRunning) return
+    const target = coinRainItems.find((item) => item.id === id)
+    if (!target) return
+
+    if (target.kind === "coin") {
+      setGameCash((prev) => prev + target.value)
+      setGamePressure((prev) => prev + 6)
+    } else {
+      setGameCash((prev) => Math.max(prev - target.value, 0))
+      setGamePressure((prev) => Math.max(prev - 6, 0))
+    }
+
+    setCoinRainItems((prev) => prev.filter((item) => item.id !== id))
+  }
+
+  useEffect(() => {
+    if (!gameRunning) return
     if (gameTimeLeft <= 0) {
       setGameRunning(false)
 
-      if (gameCash > 40) {
-        setGameMessage("💸 Le has sacado todo. Hoy paga sí o sí.")
-      } else if (gameCash > 20) {
-        setGameMessage("😤 Algo has rascado... pero sigue debiendo.")
-      } else {
-        setGameMessage("😂 Se te ha escapado. Te debe hasta el aire.")
-      }
+      if (gameCash > 45) setGameMessage("🔥 Le has reventado el bolsillo.")
+      else if (gameCash > 25) setGameMessage("😤 Algo has rascado, pero sigue tensito.")
+      else setGameMessage("😂 Hoy se te escapó vivo.")
 
       return
     }
@@ -725,15 +884,45 @@ const closeMorosoGame = () => {
   }, [gameRunning, gameTimeLeft, gameCash])
 
   useEffect(() => {
-    if (!gameRunning) return
-
-    const speed = Math.max(300, 1200 - gamePressure * 5)
+    if (!gameRunning || activeGame !== "moroso") return
+    const speed = Math.max(320, 1200 - gamePressure * 5)
     const interval = setInterval(() => {
       moveMoroso()
     }, speed)
-
     return () => clearInterval(interval)
-  }, [gameRunning, gamePressure, gameRound])
+  }, [gameRunning, gamePressure, gameRound, activeGame])
+
+  useEffect(() => {
+    if (!gameRunning || activeGame !== "reflejos") return
+    const interval = setInterval(() => {
+      setReflexTiles(
+        Array.from({ length: 9 }, (_, index) => ({
+          id: index,
+          kind: Math.random() > 0.75 ? "trap" : "money",
+          value: Math.random() > 0.75 ? -4 : Math.floor(Math.random() * 5) + 2,
+        }))
+      )
+    }, 900)
+    return () => clearInterval(interval)
+  }, [gameRunning, activeGame])
+
+  useEffect(() => {
+    if (!gameRunning || activeGame !== "monedas") return
+    const interval = setInterval(() => {
+      const id = Date.now() + Math.random()
+      setCoinRainItems((prev) => [
+        ...prev.slice(-14),
+        {
+          id,
+          kind: Math.random() > 0.75 ? "trap" : "coin",
+          left: Math.random() * 88,
+          top: Math.random() * 78,
+          value: Math.floor(Math.random() * 6) + 2,
+        },
+      ])
+    }, 450)
+    return () => clearInterval(interval)
+  }, [gameRunning, activeGame])
 
   const addExpense = async () => {
     if (!expenseTitle || !amount || !paidBy || !user || !currentAppUser) return
@@ -744,24 +933,17 @@ const closeMorosoGame = () => {
     if (Number.isNaN(amountNumber) || amountNumber <= 0) return
 
     const participants = expenseParticipants
-
     if (participants.length === 0) {
-      alert(
-        expenseMode === "group"
-          ? "Ese grupo no tiene personas"
-          : "Elige un amigo para el gasto individual"
-      )
+      alert(expenseMode === "group" ? "Ese grupo no tiene personas" : "Elige un amigo")
       return
     }
 
-    const payerIsInParticipants = participants.some((member) => member.id === paidBy)
-
-    if (!payerIsInParticipants) {
+    if (!participants.some((member) => member.id === paidBy)) {
       alert("Quien paga debe estar dentro del gasto")
       return
     }
 
-    const { data: expenseData, error: expenseError } = await supabase
+    const { data: expenseData } = await supabase
       .from("expenses")
       .insert([
         {
@@ -774,22 +956,14 @@ const closeMorosoGame = () => {
       ])
       .select()
 
-    if (expenseError || !expenseData || expenseData.length === 0) {
-      console.log("ERROR GASTO:", expenseError)
-      return
-    }
+    if (!expenseData || expenseData.length === 0) return
 
     const expenseId = expenseData[0].id
-    let splitsToInsert: {
-      expense_id: string
-      user_id: string
-      amount: number
-      owner_id: string
-    }[] = []
+
+    let splitsToInsert: { expense_id: string; user_id: string; amount: number; owner_id: string }[] = []
 
     if (splitMode === "equal") {
       const splitAmount = Number((amountNumber / participants.length).toFixed(2))
-
       splitsToInsert = participants.map((member) => ({
         expense_id: expenseId,
         user_id: member.id,
@@ -802,12 +976,9 @@ const closeMorosoGame = () => {
         amount: Number(parseFloat(customSplits[member.id] || "0").toFixed(2)),
       }))
 
-      const totalCustom = Number(
-        customAmounts.reduce((sum, item) => sum + item.amount, 0).toFixed(2)
-      )
-
+      const totalCustom = Number(customAmounts.reduce((sum, item) => sum + item.amount, 0).toFixed(2))
       if (totalCustom !== Number(amountNumber.toFixed(2))) {
-        alert("La suma personalizada no coincide con el total del gasto")
+        alert("La suma personalizada no coincide con el total")
         return
       }
 
@@ -819,16 +990,10 @@ const closeMorosoGame = () => {
       }))
     }
 
-    const { error: splitsError } = await supabase
-      .from("expense_splits")
-      .insert(splitsToInsert)
-
-    if (splitsError) {
-      console.log("ERROR SPLITS:", splitsError)
-      return
-    }
+    await supabase.from("expense_splits").insert(splitsToInsert)
 
     resetExpenseForm()
+    showToast("Gasto añadido ✅")
     await getExpenses()
     await getExpenseSplits()
   }
@@ -839,25 +1004,8 @@ const closeMorosoGame = () => {
       return
     }
 
-    const { error: splitsDeleteError } = await supabase
-      .from("expense_splits")
-      .delete()
-      .eq("expense_id", expenseId)
-
-    if (splitsDeleteError) {
-      console.log("ERROR BORRANDO SPLITS:", splitsDeleteError)
-      return
-    }
-
-    const { error: expenseDeleteError } = await supabase
-      .from("expenses")
-      .delete()
-      .eq("id", expenseId)
-
-    if (expenseDeleteError) {
-      console.log("ERROR BORRANDO GASTO:", expenseDeleteError)
-      return
-    }
+    await supabase.from("expense_splits").delete().eq("expense_id", expenseId)
+    await supabase.from("expenses").delete().eq("id", expenseId)
 
     await getExpenses()
     await getExpenseSplits()
@@ -866,7 +1014,7 @@ const closeMorosoGame = () => {
   const settleBalance = async (item: BalanceItem) => {
     if (!user) return
 
-    const { data: expenseData, error: expenseError } = await supabase
+    const { data: expenseData } = await supabase
       .from("expenses")
       .insert([
         {
@@ -879,37 +1027,16 @@ const closeMorosoGame = () => {
       ])
       .select()
 
-    if (expenseError || !expenseData || expenseData.length === 0) {
-      console.log("ERROR SALDAR GASTO:", expenseError)
-      return
-    }
+    if (!expenseData || expenseData.length === 0) return
 
     const expenseId = expenseData[0].id
 
-    const splitsToInsert = [
-      {
-        expense_id: expenseId,
-        user_id: item.debtorId,
-        amount: 0,
-        owner_id: user.id,
-      },
-      {
-        expense_id: expenseId,
-        user_id: item.creditorId,
-        amount: item.amount,
-        owner_id: user.id,
-      },
-    ]
+    await supabase.from("expense_splits").insert([
+      { expense_id: expenseId, user_id: item.debtorId, amount: 0, owner_id: user.id },
+      { expense_id: expenseId, user_id: item.creditorId, amount: item.amount, owner_id: user.id },
+    ])
 
-    const { error: splitsError } = await supabase
-      .from("expense_splits")
-      .insert(splitsToInsert)
-
-    if (splitsError) {
-      console.log("ERROR SALDAR SPLITS:", splitsError)
-      return
-    }
-
+    showToast("Deuda saldada 👌")
     await getExpenses()
     await getExpenseSplits()
   }
@@ -924,7 +1051,6 @@ const closeMorosoGame = () => {
       .order("created_at", { ascending: false })
 
     const { data: usersData } = await supabase.from("users").select("*")
-
     const { data: membersData } = await supabase
       .from("group_members")
       .select("*")
@@ -960,9 +1086,7 @@ const closeMorosoGame = () => {
       const map = new Map<string, number>()
 
       for (const expense of groupExpenses) {
-        const splitsOfExpense = expenseSplits.filter(
-          (split) => split.expense_id === expense.id
-        )
+        const splitsOfExpense = expenseSplits.filter((split) => split.expense_id === expense.id)
 
         for (const split of splitsOfExpense) {
           if (split.user_id === expense.paid_by) continue
@@ -978,9 +1102,7 @@ const closeMorosoGame = () => {
               map.set(reverseKey, newValue)
             } else {
               map.delete(reverseKey)
-              if (newValue < 0) {
-                map.set(key, Math.abs(newValue))
-              }
+              if (newValue < 0) map.set(key, Math.abs(newValue))
             }
           } else {
             map.set(key, (map.get(key) || 0) + split.amount)
@@ -989,15 +1111,9 @@ const closeMorosoGame = () => {
       }
 
       const balances: BalanceItem[] = []
-
       map.forEach((amountValue, key) => {
         const [debtorId, creditorId] = key.split("|")
-        balances.push({
-          debtorId,
-          creditorId,
-          amount: amountValue,
-          groupId: group.id,
-        })
+        balances.push({ debtorId, creditorId, amount: amountValue, groupId: group.id })
       })
 
       resultByGroup[group.id] = balances
@@ -1014,10 +1130,7 @@ const closeMorosoGame = () => {
       const debtMap = new Map<string, number>()
 
       for (const item of balances) {
-        debtMap.set(
-          item.debtorId,
-          (debtMap.get(item.debtorId) || 0) + item.amount
-        )
+        debtMap.set(item.debtorId, (debtMap.get(item.debtorId) || 0) + item.amount)
       }
 
       let maxUserId: string | null = null
@@ -1030,10 +1143,7 @@ const closeMorosoGame = () => {
         }
       })
 
-      result[group.id] =
-        maxUserId && maxDebt > 0
-          ? { userId: maxUserId, amount: maxDebt }
-          : null
+      result[group.id] = maxUserId && maxDebt > 0 ? { userId: maxUserId, amount: maxDebt } : null
     }
 
     return result
@@ -1045,9 +1155,7 @@ const closeMorosoGame = () => {
     const map = new Map<string, number>()
 
     for (const expense of expenses) {
-      const splitsOfExpense = expenseSplits.filter(
-        (split) => split.expense_id === expense.id
-      )
+      const splitsOfExpense = expenseSplits.filter((split) => split.expense_id === expense.id)
 
       for (const split of splitsOfExpense) {
         if (split.user_id === expense.paid_by) continue
@@ -1063,16 +1171,11 @@ const closeMorosoGame = () => {
     }
 
     const currentUserGroupIds = new Set(
-      groupMembers
-        .filter((item) => item.user_id === currentAppUser.id)
-        .map((item) => item.group_id)
+      groupMembers.filter((item) => item.user_id === currentAppUser.id).map((item) => item.group_id)
     )
 
     groupMembers
-      .filter(
-        (item) =>
-          currentUserGroupIds.has(item.group_id) && item.user_id !== currentAppUser.id
-      )
+      .filter((item) => currentUserGroupIds.has(item.group_id) && item.user_id !== currentAppUser.id)
       .forEach((item) => {
         if (!map.has(item.user_id)) map.set(item.user_id, 0)
       })
@@ -1085,17 +1188,11 @@ const closeMorosoGame = () => {
       .sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount))
   }, [currentAppUser, expenses, expenseSplits, groupMembers])
 
-  const normalExpenses = useMemo(() => {
-    return expenses.filter((expense) => expense.title !== "Saldar deuda")
-  }, [expenses])
-
-  const settledExpenses = useMemo(() => {
-    return expenses.filter((expense) => expense.title === "Saldar deuda")
-  }, [expenses])
+  const normalExpenses = useMemo(() => expenses.filter((expense) => expense.title !== "Saldar deuda"), [expenses])
+  const settledExpenses = useMemo(() => expenses.filter((expense) => expense.title === "Saldar deuda"), [expenses])
 
   const moroso = useMemo(() => {
     if (!currentAppUser) return null
-
     let maxFriendId: string | null = null
     let maxDebt = 0
 
@@ -1106,13 +1203,18 @@ const closeMorosoGame = () => {
       }
     }
 
-    if (!maxFriendId || maxDebt === 0) return null
-
-    return {
-      friendId: maxFriendId,
-      amount: maxDebt,
-    }
+    return maxFriendId && maxDebt > 0 ? { friendId: maxFriendId, amount: maxDebt } : null
   }, [friendBalances, currentAppUser])
+
+  const rankingPagadores = useMemo(() => {
+    const map = new Map<string, number>()
+    expenses.forEach((expense) => {
+      map.set(expense.paid_by, (map.get(expense.paid_by) || 0) + expense.amount)
+    })
+    return Array.from(map.entries())
+      .map(([userId, total]) => ({ userId, total }))
+      .sort((a, b) => b.total - a.total)
+  }, [expenses])
 
   const getTrustInfo = (amount: number, userId: string): TagInfo => {
     let level: TrustLevel = "top"
@@ -1121,7 +1223,6 @@ const closeMorosoGame = () => {
     else if (amount > 80) level = "dodgy"
     else if (amount > 30) level = "meh"
     else if (amount > 10) level = "good"
-    else level = "top"
 
     const content = TRUST_CONTENT[level]
     const index = seededIndex(userId, content.labels.length)
@@ -1138,18 +1239,9 @@ const closeMorosoGame = () => {
 
   const getFriendBalanceText = (friendId: string) => {
     const item = friendBalances.find((f) => f.friendId === friendId)
-
     if (!item || item.amount === 0) return "Balance a cero"
     if (item.amount > 0) return `${getUserName(friendId)} te debe ${item.amount.toFixed(2)}€`
     return `Debes ${Math.abs(item.amount).toFixed(2)}€ a ${getUserName(friendId)}`
-  }
-
-  const openGroupFromHome = (groupId: string) => {
-    setExpenseMode("group")
-    setExpenseGroupId(groupId)
-    setSelectedFriendId("")
-    setPaidBy(currentAppUser?.id || "")
-    setScreen("gastos")
   }
 
   const openFriendExpense = (friendId: string) => {
@@ -1163,16 +1255,9 @@ const closeMorosoGame = () => {
   if (!user) {
     return (
       <main className="min-h-screen flex items-center justify-center bg-[radial-gradient(circle_at_top,_#1f2937,_#0f172a_55%,_#020617)] px-4 overflow-hidden">
-        <div className="absolute inset-0 opacity-40">
-          <div className="absolute left-[-80px] top-[-40px] h-72 w-72 rounded-full bg-emerald-400/20 blur-3xl animate-pulse" />
-          <div className="absolute right-[-60px] bottom-[-30px] h-72 w-72 rounded-full bg-fuchsia-500/20 blur-3xl animate-pulse" />
-        </div>
-
         <div className="relative z-10 w-full max-w-md rounded-3xl border border-white/10 bg-white/95 p-8 shadow-2xl backdrop-blur">
           <div className="mb-4 flex items-center justify-center gap-3">
-            <div className="grid h-12 w-12 place-items-center rounded-2xl bg-black text-2xl text-white shadow-lg">
-              💸
-            </div>
+            <div className="grid h-12 w-12 place-items-center rounded-2xl bg-black text-2xl text-white shadow-lg">💸</div>
             <div>
               <h1 className="text-3xl font-black text-black">TeDebo</h1>
               <p className="text-xs uppercase tracking-[0.25em] text-gray-500">cuentas entre colegas</p>
@@ -1183,19 +1268,11 @@ const closeMorosoGame = () => {
             {authMode === "login" ? "Iniciar sesión" : "Crear cuenta"}
           </h2>
 
-          <p className="text-sm text-gray-500 text-center mb-6">
-            {authMode === "login"
-              ? "Entra para gestionar tus grupos, gastos y balances"
-              : "Crea tu cuenta para empezar a compartir gastos"}
-          </p>
-
           <button
             onClick={() => setAuthMode(authMode === "login" ? "register" : "login")}
             className="text-sm text-gray-500 hover:text-black mb-4 w-full text-center transition"
           >
-            {authMode === "login"
-              ? "¿No tienes cuenta? Regístrate"
-              : "¿Ya tienes cuenta? Inicia sesión"}
+            {authMode === "login" ? "¿No tienes cuenta? Regístrate" : "¿Ya tienes cuenta? Inicia sesión"}
           </button>
 
           <input
@@ -1206,16 +1283,15 @@ const closeMorosoGame = () => {
           />
 
           {authMode === "register" && (
-            <div className="animate-[fadeIn_.3s_ease] flex flex-col">
+            <div className="flex flex-col">
               <input
-                className="border border-gray-300 focus:border-black focus:ring-1 focus:ring-black outline-none p-3 mb-3 w-full rounded-lg transition"
+                className="border border-gray-300 p-3 mb-3 w-full rounded-lg"
                 placeholder="Nombre"
                 value={nombre}
                 onChange={(e) => setNombre(e.target.value)}
               />
-
               <input
-                className="border border-gray-300 focus:border-black focus:ring-1 focus:ring-black outline-none p-3 mb-3 w-full rounded-lg transition"
+                className="border border-gray-300 p-3 mb-3 w-full rounded-lg"
                 placeholder="Apellidos"
                 value={apellidos}
                 onChange={(e) => setApellidos(e.target.value)}
@@ -1236,34 +1312,21 @@ const closeMorosoGame = () => {
               if (loading) return
               setLoading(true)
 
-              if (
-                !email ||
-                !password ||
-                (authMode === "register" && (!nombre || !apellidos))
-              ) {
+              if (!email || !password || (authMode === "register" && (!nombre || !apellidos))) {
                 alert("Faltan datos")
                 setLoading(false)
                 return
               }
 
               let error: any
-
               if (authMode === "login") {
-                const res = await supabase.auth.signInWithPassword({
-                  email,
-                  password,
-                })
+                const res = await supabase.auth.signInWithPassword({ email, password })
                 error = res.error
               } else {
                 const res = await supabase.auth.signUp({
                   email,
                   password,
-                  options: {
-                    data: {
-                      nombre,
-                      apellidos,
-                    },
-                  },
+                  options: { data: { nombre, apellidos } },
                 })
                 error = res.error
               }
@@ -1274,25 +1337,12 @@ const closeMorosoGame = () => {
                 return
               }
 
-              alert(
-                authMode === "login"
-                  ? "Login correcto"
-                  : "Registro enviado correctamente"
-              )
               setLoading(false)
             }}
             disabled={loading}
-            className={`w-full py-3 rounded-xl font-semibold transition-all duration-200 ${
-              loading
-                ? "bg-gray-400 cursor-not-allowed"
-                : "bg-black hover:scale-105 active:scale-95 text-white shadow-md hover:shadow-lg"
-            }`}
+            className="w-full py-3 rounded-xl font-semibold bg-black text-white"
           >
-            {loading
-              ? "Cargando..."
-              : authMode === "login"
-              ? "Iniciar sesión"
-              : "Crear cuenta"}
+            {loading ? "Cargando..." : authMode === "login" ? "Iniciar sesión" : "Crear cuenta"}
           </button>
         </div>
       </main>
@@ -1301,6 +1351,12 @@ const closeMorosoGame = () => {
 
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top,_#f8fafc,_#eef2ff_35%,_#ffffff_70%)] p-6">
+      {toast && (
+        <div className="fixed bottom-6 right-6 z-[80] rounded-xl bg-black px-4 py-3 text-white shadow-2xl">
+          {toast}
+        </div>
+      )}
+
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
         <div className="absolute left-[-60px] top-24 h-56 w-56 rounded-full bg-emerald-300/20 blur-3xl animate-pulse" />
         <div className="absolute right-[-30px] top-12 h-72 w-72 rounded-full bg-fuchsia-300/20 blur-3xl animate-pulse" />
@@ -1310,61 +1366,45 @@ const closeMorosoGame = () => {
       <div className="mx-auto max-w-6xl relative">
         <div className="mb-5 flex justify-between items-center flex-wrap gap-3">
           <div className="flex items-center gap-3">
-            <div className="grid h-12 w-12 place-items-center rounded-2xl bg-black text-2xl text-white shadow-lg">
-              💸
-            </div>
+            <div className="grid h-12 w-12 place-items-center rounded-2xl bg-black text-2xl text-white shadow-lg">💸</div>
             <div>
               <p className="text-xs uppercase tracking-[0.25em] text-gray-500">TeDebo</p>
             </div>
           </div>
 
-          <div className="flex gap-2 flex-wrap">
-          <div className="flex gap-2 items-center">
-            <div className="flex gap-2 items-center flex-wrap">
+          <div className="flex gap-2 flex-wrap items-center">
+            <button
+              onClick={() => setScreen("home")}
+              className={`px-4 py-2 rounded-xl ${screen === "home" ? "bg-black text-white" : "bg-white border border-gray-200"}`}
+            >
+              Inicio
+            </button>
 
-</div>
+            <div className="relative">
+              <button
+                onClick={() => setMenuOpen(!menuOpen)}
+                className="px-4 py-2 rounded-xl bg-white border border-gray-200"
+              >
+                ☰
+              </button>
 
-  {/* Botón Inicio */}
-  <button
-    onClick={() => setScreen("home")}
-    className={`px-4 py-2 rounded-xl ${
-      screen === "home"
-        ? "bg-black text-white"
-        : "bg-white border border-gray-200"
-    }`}
-  >
-    Inicio
-  </button>
-
-  {/* Botón menú */}
-  <div className="relative">
-    <button
-      onClick={() => setMenuOpen(!menuOpen)}
-      className="px-4 py-2 rounded-xl bg-white border border-gray-200"
-    >
-      ☰
-    </button>
-
-    {menuOpen && (
-      <div className="absolute right-0 mt-2 w-40 bg-white border rounded-xl shadow-lg z-50">
-        {menuItems.map((item) => (
-          <button
-            key={item}
-            onClick={() => {
-              setScreen(item)
-              setMenuOpen(false)
-            }}
-            className="block w-full text-left px-4 py-2 hover:bg-gray-100 capitalize"
-          >
-            {item}
-          </button>
-        ))}
-      </div>
-    )}
-  </div>
-
-</div>
-
+              {menuOpen && (
+                <div className="absolute right-0 mt-2 w-40 bg-white border rounded-xl shadow-lg z-50">
+                  {menuItems.map((item) => (
+                    <button
+                      key={item}
+                      onClick={() => {
+                        setScreen(item)
+                        setMenuOpen(false)
+                      }}
+                      className="block w-full text-left px-4 py-2 hover:bg-gray-100 capitalize"
+                    >
+                      {item}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
 
             <button
               onClick={async () => {
@@ -1378,163 +1418,252 @@ const closeMorosoGame = () => {
           </div>
         </div>
 
-{screen === "home" && (
-  <div className="mx-auto flex max-w-6xl animate-[fadeIn_.35s_ease] flex-col gap-6">
-    <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-zinc-900 via-slate-800 to-black p-8 text-white shadow-2xl">
-      <div className="absolute -top-6 -left-6 h-24 w-24 rounded-full bg-white/10 blur-2xl" />
-      <div className="absolute top-10 right-6 h-20 w-20 rounded-full bg-green-400/20 blur-2xl" />
-      <div className="absolute bottom-0 left-1/3 h-24 w-24 rounded-full bg-red-400/20 blur-2xl" />
+        {screen === "home" && (
+          <div className="mx-auto flex max-w-6xl animate-[fadeIn_.35s_ease] flex-col gap-6">
+            <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-zinc-900 via-slate-800 to-black p-8 text-white shadow-2xl">
+              <div className="absolute -top-6 -left-6 h-24 w-24 rounded-full bg-white/10 blur-2xl" />
+              <div className="absolute top-10 right-6 h-20 w-20 rounded-full bg-green-400/20 blur-2xl" />
+              <div className="absolute bottom-0 left-1/3 h-24 w-24 rounded-full bg-red-400/20 blur-2xl" />
 
-      <div className="relative z-10 grid gap-8 lg:grid-cols-2 items-center">
-        <div className="max-w-2xl flex flex-col gap-4">
-          <div className="inline-flex w-fit items-center rounded-full border border-white/20 bg-white/10 px-3 py-1 text-sm backdrop-blur">
-            Bienvenido al rincón de las cuentas pendientes
-          </div>
+              <div className="relative z-10 grid gap-8 lg:grid-cols-[1.1fr_0.9fr] items-center">
+                <div className="flex flex-col gap-4">
+                  <div className="inline-flex w-fit items-center rounded-full border border-white/20 bg-white/10 px-3 py-1 text-sm backdrop-blur">
+                    Bienvenido al rincón de las cuentas pendientes
+                  </div>
 
-          <h2 className="text-4xl font-black leading-tight sm:text-5xl">
-            Si estás aquí,
-            <br />
-            <span className="text-green-300">alguien te debe pasta.</span>
-          </h2>
+                  <h2 className="text-4xl font-black leading-tight sm:text-5xl">
+                    Si estás aquí,
+                    <br />
+                    <span className="text-green-300">alguien te debe pasta.</span>
+                  </h2>
 
-          <p className="max-w-2xl text-sm text-gray-200 sm:text-base">
-            Grupos, amigos, gastos directos, balances globales y la lista negra del mes.
-          </p>
+                  <p className="max-w-2xl text-sm text-gray-200 sm:text-base">
+                    Grupos, balances visuales, onboarding, ranking mensual y minijuegos para meter presión.
+                  </p>
 
-          <div className="flex flex-wrap gap-3 pt-2">
-            <div className="rounded-2xl bg-white/10 px-4 py-2 text-sm backdrop-blur">
-              Grupos reales
-            </div>
-            <div className="rounded-2xl bg-white/10 px-4 py-2 text-sm backdrop-blur">
-              Amigos y balances
-            </div>
-            <div className="rounded-2xl bg-white/10 px-4 py-2 text-sm backdrop-blur">
-              Historial y morosos
-            </div>
-          </div>
-        </div>
+                  <div className="flex flex-wrap gap-3 pt-2">
+                    <div className="rounded-2xl bg-white/10 px-4 py-2 text-sm backdrop-blur">Grupos reales</div>
+                    <div className="rounded-2xl bg-white/10 px-4 py-2 text-sm backdrop-blur">Amigos y balances</div>
+                    <div className="rounded-2xl bg-white/10 px-4 py-2 text-sm backdrop-blur">Historial y morosos</div>
+                  </div>
 
-        <div className="flex flex-1 items-center justify-center">
-          <div className="relative h-[280px] w-full max-w-[320px]">
-            <div className="absolute inset-0 rounded-[32px] bg-white/10 blur-2xl" />
-
-            <div className="absolute left-1/2 top-1/2 grid h-56 w-56 -translate-x-1/2 -translate-y-1/2 grid-cols-3 gap-2 rounded-[28px] border border-white/15 bg-black/20 p-4 shadow-2xl backdrop-blur-md animate-[floatCube_6s_ease-in-out_infinite]">
-              {["😏", "💸", "🕶️", "🪙", "🤑", "💰", "😈", "🏦", "🫰"].map((icon, index) => (
-                <div
-                  key={index}
-                  className="flex items-center justify-center rounded-xl border border-white/10 bg-white/10 text-2xl shadow-inner backdrop-blur-sm"
-                >
-                  {icon}
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    <div className="rounded-2xl bg-white/10 p-3">
+                      <p className="text-xs uppercase tracking-wide text-white/60">Colegas</p>
+                      <p className="mt-2 text-2xl font-black">{friendList.length}</p>
+                    </div>
+                    <div className="rounded-2xl bg-white/10 p-3">
+                      <p className="text-xs uppercase tracking-wide text-white/60">Grupos</p>
+                      <p className="mt-2 text-2xl font-black">{groups.length}</p>
+                    </div>
+                    <div className="rounded-2xl bg-white/10 p-3">
+                      <p className="text-xs uppercase tracking-wide text-white/60">Gastos</p>
+                      <p className="mt-2 text-2xl font-black">{normalExpenses.length}</p>
+                    </div>
+                  </div>
                 </div>
-              ))}
+
+                <div className="flex items-center justify-center">
+                  <div className="relative h-[300px] w-[300px] [perspective:1000px]">
+                    <div className="absolute inset-0 rounded-[32px] bg-white/10 blur-2xl" />
+                    <div className="absolute left-1/2 top-1/2 grid h-60 w-60 -translate-x-1/2 -translate-y-1/2 grid-cols-3 gap-2 rounded-[28px] border border-white/15 bg-black/20 p-4 shadow-2xl backdrop-blur-md animate-[floatCube_6s_ease-in-out_infinite]">
+                      {["😏", "💸", "🕶️", "🪙", "🤑", "💰", "😈", "🏦", "🫰"].map((icon, index) => (
+                        <div
+                          key={index}
+                          className="flex items-center justify-center rounded-xl border border-white/10 bg-white/10 text-2xl shadow-inner backdrop-blur-sm"
+                        >
+                          {icon}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {showGuide && (
+              <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+                <div className="mb-4 flex items-center justify-between gap-3">
+                  <div>
+                    <h3 className="text-xl font-black text-black">Cómo funciona TeDebo</h3>
+                    <p className="mt-1 text-sm text-gray-500">Guía rápida para que cualquiera entienda la app en 10 segundos.</p>
+                  </div>
+
+                  <button
+                    onClick={() => setShowGuide(false)}
+                    className="rounded-xl bg-black px-4 py-2 text-sm font-semibold text-white"
+                  >
+                    Cerrar
+                  </button>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                  {[
+                    ["1", "👤", "Crea cuenta", "Entra y deja lista tu cuenta."],
+                    ["2", "📩", "Invita amigos", "Que se registren con el mismo correo."],
+                    ["3", "🧾", "Añade gastos", "Grupo o gasto directo, como tú quieras."],
+                    ["4", "📊", "Revisa balances", "Mira quién debe y quién paga más."],
+                  ].map(([num, icon, title, desc]) => (
+                    <div key={num} className="rounded-2xl bg-gray-50 p-4 shadow-sm">
+                      <p className="text-2xl">{icon}</p>
+                      <p className="mt-3 font-bold text-black">{title}</p>
+                      <p className="mt-2 text-sm text-gray-600">{desc}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="rounded-3xl border border-emerald-200 bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-500 p-6 text-white shadow-2xl">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div className="max-w-2xl">
+                  <div className="inline-flex w-fit items-center rounded-full bg-white/15 px-3 py-1 text-sm font-semibold backdrop-blur">
+                    📩 Trae a tu gente
+                  </div>
+                  <h3 className="mt-3 text-2xl font-black sm:text-3xl">
+                    Trae a tus colegas y empieza a repartir cuentas como un jefe 😈
+                  </h3>
+                  <p className="mt-2 text-sm text-white/90 sm:text-base">
+                    Mándales la invitación y que entren con el mismo correo al que les llegó.
+                  </p>
+                </div>
+
+                <div className="w-full max-w-xl rounded-2xl bg-white/10 p-4 backdrop-blur-md">
+                  <label className="mb-2 block text-sm font-semibold text-white">Correo de tu colega</label>
+                  <div className="flex flex-col gap-3 sm:flex-row">
+                    <input
+                      placeholder="colega@correo.com"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      className="w-full rounded-xl border border-white/20 bg-white/90 p-3 text-black outline-none"
+                    />
+                    <button
+                      onClick={addUser}
+                      className="rounded-xl bg-black px-5 py-3 font-semibold text-white transition-all hover:scale-105 active:scale-95"
+                    >
+                      Enviar invitación
+                    </button>
+                  </div>
+                  <p className="mt-3 text-xs text-white/80">
+                    Importante: tu colega debe registrarse o iniciar sesión con ese mismo correo.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
+              <div className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
+                <div className="mb-3 flex items-center justify-between">
+                  <div>
+                    <h3 className="text-lg font-bold text-black">Centro de minijuegos</h3>
+                    <p className="text-sm text-gray-500">
+                      Juega en pantalla completa y métele presión al drama financiero.
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={() => setShowGamesMenu((prev) => !prev)}
+                    className="rounded-xl bg-black px-4 py-3 text-white transition-all hover:scale-105 active:scale-95"
+                  >
+                    {showGamesMenu ? "Ocultar" : "Más minijuegos"}
+                  </button>
+                </div>
+
+                <div className="mb-4 grid gap-3 sm:grid-cols-3">
+                  <div className="rounded-xl bg-gray-100 p-3">
+                    <p className="text-xs uppercase tracking-wide text-gray-500">Tiempo</p>
+                    <p className="text-xl font-bold text-black">{gameTimeLeft}s</p>
+                  </div>
+                  <div className="rounded-xl bg-gray-100 p-3">
+                    <p className="text-xs uppercase tracking-wide text-gray-500">Pasta recuperada</p>
+                    <p className="text-xl font-bold text-black">{gameCash}€</p>
+                  </div>
+                  <div className="rounded-xl bg-gray-100 p-3">
+                    <p className="text-xs uppercase tracking-wide text-gray-500">Presión</p>
+                    <p className="text-xl font-bold text-black">{gamePressure}%</p>
+                  </div>
+                </div>
+
+                <div className="mb-4 h-4 w-full overflow-hidden rounded-full bg-gray-200">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-emerald-500 via-yellow-400 to-red-500 transition-all duration-200"
+                    style={{ width: `${Math.min(gamePressure, 100)}%` }}
+                  />
+                </div>
+
+                <button
+                  onClick={() => startGame("moroso")}
+                  className="w-full rounded-2xl bg-gradient-to-br from-black to-zinc-800 p-6 text-left text-white transition-all hover:scale-[1.01] active:scale-[0.99]"
+                >
+                  <p className="text-4xl">💸</p>
+                  <p className="mt-3 text-xl font-black">A por el moroso</p>
+                  <p className="mt-2 text-sm text-white/70">
+                    El clásico para empezar fuerte. Rápido, simple y adictivo.
+                  </p>
+                </button>
+
+                {showGamesMenu && (
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                    {(["reflejos", "memoria", "excusas", "monedas"] as GameId[]).map((game) => (
+                      <button
+                        key={game}
+                        onClick={() => startGame(game)}
+                        className="rounded-2xl border border-gray-200 bg-gray-50 p-4 text-left transition-all hover:scale-[1.02] active:scale-[0.98]"
+                      >
+                        <p className="text-2xl">{GAME_INFO[game].icon}</p>
+                        <p className="mt-3 font-bold text-black">{GAME_INFO[game].title}</p>
+                        <p className="mt-1 text-sm text-gray-600">{GAME_INFO[game].subtitle}</p>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
+                <div className="mb-4 flex items-center justify-between">
+                  <div>
+                    <h3 className="text-lg font-bold text-black">Quién pagó más</h3>
+                    <p className="text-sm text-gray-500">Podio mensual para el pique sano.</p>
+                  </div>
+                  <div className="rounded-full bg-yellow-100 px-3 py-1 text-xs font-semibold text-yellow-700">🏆 Podio</div>
+                </div>
+
+                <div className="space-y-3">
+                  {rankingPagadores.length === 0 ? (
+                    <div className="rounded-2xl bg-gray-50 p-4 text-sm text-gray-500">
+                      Todavía no hay pagos para montar el ranking.
+                    </div>
+                  ) : (
+                    rankingPagadores.slice(0, 5).map((item, index) => (
+                      <div
+                        key={item.userId}
+                        className="flex items-center justify-between rounded-2xl border border-gray-200 bg-gray-50 p-4"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="grid h-10 w-10 place-items-center rounded-full bg-black text-sm font-bold text-white">
+                            {index === 0 ? "🥇" : index === 1 ? "🥈" : index === 2 ? "🥉" : "🏅"}
+                          </div>
+                          <div>
+                            <p className="font-semibold text-black">{getUserName(item.userId)}</p>
+                            <p className="text-xs text-gray-500">Total pagado acumulado</p>
+                          </div>
+                        </div>
+
+                        <div className="rounded-full bg-white px-3 py-1 text-sm font-bold text-black shadow-sm">
+                          {item.total.toFixed(2)}€
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      </div>
-    </div>
-
-    {/* INVITAR AMIGOS AHORA VA ARRIBA DEL JUEGO */}
-    <div className="rounded-3xl border border-emerald-200 bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-500 p-6 text-white shadow-2xl">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div className="max-w-2xl">
-          <div className="inline-flex w-fit items-center rounded-full bg-white/15 px-3 py-1 text-sm font-semibold backdrop-blur">
-            📩 Trae a tu gente
-          </div>
-
-          <h3 className="mt-3 text-2xl font-black sm:text-3xl">
-            Invita a tus colegas y empieza a repartir clavadas como dios manda
-          </h3>
-
-          <p className="mt-2 text-sm text-white/90 sm:text-base">
-            Mándales la invitación y que entren con el mismo correo al que les llegó. Si no, luego vienen los lloros.
-          </p>
-        </div>
-
-        <div className="w-full max-w-xl rounded-2xl bg-white/10 p-4 backdrop-blur-md">
-          <label className="mb-2 block text-sm font-semibold text-white">
-            Correo de tu colega
-          </label>
-
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <input
-              placeholder="colega@correo.com"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="w-full rounded-xl border border-white/20 bg-white/90 p-3 text-black outline-none"
-            />
-
-            <button
-              onClick={addUser}
-              className="rounded-xl bg-black px-5 py-3 font-semibold text-white transition-all hover:scale-105 active:scale-95"
-            >
-              Enviar invitación
-            </button>
-          </div>
-
-          <p className="mt-3 text-xs text-white/80">
-            Importante: tu colega debe registrarse o iniciar sesión con ese mismo correo.
-          </p>
-        </div>
-      </div>
-    </div>
-
-    {/* JUEGO AHORA VA ABAJO */}
-    <div className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
-      <div className="mb-3 flex items-center justify-between">
-        <div>
-          <h3 className="text-lg font-bold text-black">A por el moroso</h3>
-          <p className="text-sm text-gray-500">
-            Dale toques antes de que se vuelva a hacer el loco con tu pasta.
-          </p>
-        </div>
-
-        {!gameRunning && (
-          <button
-            onClick={startMorosoGame}
-            className="rounded-xl bg-black px-4 py-3 text-white transition-all hover:scale-105 active:scale-95"
-          >
-            Empezar
-          </button>
         )}
-      </div>
-
-      <div className="mb-4 grid gap-3 sm:grid-cols-3">
-        <div className="rounded-xl bg-gray-100 p-3">
-          <p className="text-xs uppercase tracking-wide text-gray-500">Tiempo</p>
-          <p className="text-xl font-bold text-black">{gameTimeLeft}s</p>
-        </div>
-        <div className="rounded-xl bg-gray-100 p-3">
-          <p className="text-xs uppercase tracking-wide text-gray-500">Pasta recuperada</p>
-          <p className="text-xl font-bold text-black">{gameCash}€</p>
-        </div>
-        <div className="rounded-xl bg-gray-100 p-3">
-          <p className="text-xs uppercase tracking-wide text-gray-500">Barra de presión</p>
-          <p className="text-xl font-bold text-black">{gamePressure}%</p>
-        </div>
-      </div>
-
-      <div className="mb-4 h-4 w-full overflow-hidden rounded-full bg-gray-200">
-        <div
-          className="h-full rounded-full bg-gradient-to-r from-emerald-500 via-yellow-400 to-red-500 transition-all duration-200"
-          style={{ width: `${Math.min(gamePressure, 100)}%` }}
-        />
-      </div>
-
-      <div className="rounded-2xl bg-gray-50 p-6 text-center">
-        <p className="text-4xl">🎮</p>
-        <p className="mt-3 text-lg font-bold text-black">Minijuego listo</p>
-        <p className="mt-2 text-sm text-gray-600">
-          Ahora al pulsar empezar se abrirá en pantalla completa.
-        </p>
-      </div>
-    </div>
-  </div>
-)}
-
 
         {screen === "amigos" && (
-          <div className="mx-auto flex max-w-3xl animate-[fadeIn_.35s_ease] flex-col gap-6">
-            <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
+          <div className="mx-auto flex max-w-4xl animate-[fadeIn_.35s_ease] flex-col gap-6">
+            <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
               <h2 className="text-2xl font-semibold text-black">Colegas</h2>
               <p className="mt-1 text-sm text-gray-500">
                 Aquí ves el balance global contigo y cada colega, con su nivel de confianza incluido.
@@ -1542,27 +1671,23 @@ const closeMorosoGame = () => {
 
               <div className="mt-4 space-y-3">
                 {friendList.length === 0 ? (
-                  <p className="text-gray-500">
-                    Todavía no tienes balances con colegas.
-                  </p>
+                  <p className="text-gray-500">Todavía no tienes balances con colegas.</p>
                 ) : (
                   friendList.map((friend) => {
-                    const balance =
-                      friendBalances.find((item) => item.friendId === friend.id)?.amount || 0
-
+                    const balance = friendBalances.find((item) => item.friendId === friend.id)?.amount || 0
                     const trustInfo = getTrustInfo(balance > 0 ? balance : 0, friend.id)
 
                     return (
-                      <div
-                        key={friend.id}
-                        className={`rounded-xl border p-4 ${trustInfo.borderClass}`}
-                      >
+                      <div key={friend.id} className={`rounded-xl border p-4 ${trustInfo.borderClass}`}>
                         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                          <div>
-                            <p className="text-lg font-semibold text-black">{friend.name}</p>
-                            <p className="text-sm text-gray-600">
-                              {getFriendBalanceText(friend.id)}
-                            </p>
+                          <div className="flex items-center gap-3">
+                            <div className="grid h-12 w-12 place-items-center rounded-full bg-black text-white font-bold">
+                              {(friend.name || "US").slice(0, 2).toUpperCase()}
+                            </div>
+                            <div>
+                              <p className="text-lg font-semibold text-black">{friend.name}</p>
+                              <p className="text-sm text-gray-600">{getFriendBalanceText(friend.id)}</p>
+                            </div>
                           </div>
 
                           <div className="flex flex-wrap items-center gap-2">
@@ -1581,201 +1706,271 @@ const closeMorosoGame = () => {
                             </button>
                           </div>
                         </div>
+
+                        <div className="mt-4 h-3 w-full overflow-hidden rounded-full bg-gray-200">
+                          <div
+                            className={`h-full rounded-full ${balance > 0 ? "bg-emerald-500" : balance < 0 ? "bg-red-500" : "bg-gray-400"}`}
+                            style={{ width: `${Math.min(Math.max(Math.abs(balance) * 2, 12), 100)}%` }}
+                          />
+                        </div>
                       </div>
                     )
                   })
                 )}
               </div>
             </div>
+
+            <div className="grid gap-6 lg:grid-cols-2">
+              <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+                <h3 className="text-xl font-semibold text-black">Invitaciones recibidas</h3>
+                <div className="mt-3 space-y-3">
+                  {receivedInvitations.length === 0 ? (
+                    <p className="text-gray-500">No tienes invitaciones pendientes.</p>
+                  ) : (
+                    receivedInvitations.map((inv) => (
+                      <div key={inv.id} className="flex items-center justify-between rounded-xl border p-3">
+                        <div>
+                          <p className="font-semibold text-black">{inv.email}</p>
+                          <p className="text-xs text-gray-500">{inv.status}</p>
+                        </div>
+                        <button onClick={() => acceptInvitation(inv)} className="rounded-lg bg-black px-4 py-2 text-white">
+                          Aceptar
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+                <h3 className="text-xl font-semibold text-black">Invitaciones enviadas</h3>
+                <div className="mt-3 space-y-3">
+                  {sentInvitations.length === 0 ? (
+                    <p className="text-gray-500">No has enviado invitaciones aún.</p>
+                  ) : (
+                    sentInvitations.map((inv) => (
+                      <div key={inv.id} className="flex items-center justify-between rounded-xl border p-3">
+                        <div>
+                          <p className="font-semibold text-black">{inv.email}</p>
+                          <p className="text-xs text-gray-500">{inv.status}</p>
+                        </div>
+                        <span className={`rounded-full px-3 py-1 text-xs font-semibold ${inv.status === "accepted" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
+                          {inv.status}
+                        </span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
         {screen === "gastos" && (
-          <div className="mx-auto flex max-w-3xl animate-[fadeIn_.35s_ease] flex-col gap-6">
-            <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
-              <h2 className="mb-2 text-xl font-semibold text-black">Añadir gasto</h2>
+          <div className="mx-auto flex max-w-4xl animate-[fadeIn_.35s_ease] flex-col gap-6">
+            <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+              <div className="mb-4 flex items-center justify-between">
+                <div>
+                  <h2 className="text-2xl font-semibold text-black">Añadir gasto</h2>
+                  <p className="mt-1 text-sm text-gray-500">Flujo más limpio y visual.</p>
+                </div>
 
-              <div className="mt-3 flex gap-2">
-                <button
-                  onClick={() => {
-                    setExpenseMode("group")
-                    setSelectedFriendId("")
-                  }}
-                  className={`rounded-xl px-4 py-2 text-white transition-all ${
-                    expenseMode === "group" ? "bg-black" : "bg-gray-500"
-                  }`}
-                >
-                  Gasto de grupo
-                </button>
-
-                <button
-                  onClick={() => {
-                    setExpenseMode("friend")
-                    setExpenseGroupId("")
-                  }}
-                  className={`rounded-xl px-4 py-2 text-white transition-all ${
-                    expenseMode === "friend" ? "bg-black" : "bg-gray-500"
-                  }`}
-                >
-                  Gasto con amigo
-                </button>
+                <div className="rounded-full bg-black px-4 py-2 text-sm font-semibold text-white">
+                  {expenseMode === "group" ? "Modo grupo" : "Modo amigo"}
+                </div>
               </div>
 
-              <input
-                placeholder="Concepto (ej: cena)"
-                value={expenseTitle}
-                onChange={(e) => setExpenseTitle(e.target.value)}
-                className="mt-3 w-full rounded-lg border border-gray-300 p-3 text-black outline-none transition focus:border-black focus:ring-1 focus:ring-black"
-              />
-
-              <input
-                type="number"
-                placeholder="Cantidad total"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                className="mt-3 w-full rounded-lg border border-gray-300 p-3 text-black outline-none transition focus:border-black focus:ring-1 focus:ring-black"
-              />
-
-              {expenseMode === "group" ? (
-                <select
-                  value={expenseGroupId}
-                  onChange={(e) => {
-                    setExpenseGroupId(e.target.value)
-                    setPaidBy("")
-                    setCustomSplits({})
-                  }}
-                  className="mt-3 w-full rounded-lg border border-gray-300 p-3 text-black outline-none transition focus:border-black focus:ring-1 focus:ring-black"
-                >
-                  <option value="">Grupo</option>
-                  {groups.map((g) => (
-                    <option key={g.id} value={g.id}>
-                      {g.name}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <select
-                  value={selectedFriendId}
-                  onChange={(e) => {
-                    setSelectedFriendId(e.target.value)
-                    setPaidBy(currentAppUser?.id || "")
-                    setCustomSplits({})
-                  }}
-                  className="mt-3 w-full rounded-lg border border-gray-300 p-3 text-black outline-none transition focus:border-black focus:ring-1 focus:ring-black"
-                >
-                  <option value="">Amigo</option>
-                  {friendList.map((friend) => (
-                    <option key={friend.id} value={friend.id}>
-                      {friend.name}
-                    </option>
-                  ))}
-                </select>
-              )}
-
-              <select
-                value={paidBy}
-                onChange={(e) => setPaidBy(e.target.value)}
-                disabled={expenseParticipants.length === 0}
-                className="mt-3 w-full rounded-lg border border-gray-300 p-3 text-black outline-none transition focus:border-black focus:ring-1 focus:ring-black disabled:bg-gray-100 disabled:text-gray-400"
-              >
-                <option value="">
-                  {expenseParticipants.length === 0
-                    ? expenseMode === "group"
-                      ? "Ese grupo no tiene personas"
-                      : "Primero elige amigo"
-                    : "Quién paga"}
-                </option>
-
-                {expenseParticipants.map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.name}
-                  </option>
+              <div className="mb-5 grid gap-3 sm:grid-cols-5">
+                {[
+                  ["1", "¿Con quién?"],
+                  ["2", "Concepto"],
+                  ["3", "Cantidad"],
+                  ["4", "Quién paga"],
+                  ["5", "Reparto"],
+                ].map(([n, txt]) => (
+                  <div key={n} className="rounded-2xl bg-gray-50 p-3 text-center">
+                    <p className="text-xs uppercase tracking-wide text-gray-500">Paso {n}</p>
+                    <p className="mt-2 text-sm font-semibold text-black">{txt}</p>
+                  </div>
                 ))}
-              </select>
-
-              <div className="mt-3 flex gap-2">
-                <button
-                  onClick={() => setSplitMode("equal")}
-                  className={`rounded-xl px-3 py-2 text-white ${
-                    splitMode === "equal" ? "bg-black" : "bg-gray-500"
-                  }`}
-                >
-                  Equitativa
-                </button>
-
-                <button
-                  onClick={() => setSplitMode("custom")}
-                  className={`rounded-xl px-3 py-2 text-white ${
-                    splitMode === "custom" ? "bg-black" : "bg-gray-500"
-                  }`}
-                >
-                  Personalizada
-                </button>
               </div>
 
-              {splitMode === "custom" && expenseParticipants.length > 0 && (
-                <div className="mt-3 rounded-xl border p-3">
-                  <h3 className="font-semibold text-black">Importe por persona</h3>
+              <div className="grid gap-6 lg:grid-cols-[1fr_0.9fr]">
+                <div>
+                  <div className="mt-3 flex gap-2">
+                    <button
+                      onClick={() => {
+                        setExpenseMode("group")
+                        setSelectedFriendId("")
+                      }}
+                      className={`rounded-xl px-4 py-2 text-white transition-all ${expenseMode === "group" ? "bg-black" : "bg-gray-500"}`}
+                    >
+                      Gasto de grupo
+                    </button>
 
-                  <div className="mt-2 flex flex-col gap-2">
-                    {expenseParticipants.map((member) => (
-                      <div key={member.id} className="flex flex-col gap-1">
-                        <label className="text-sm text-black">{member.name}</label>
-                        <input
-                          type="number"
-                          step="0.01"
-                          placeholder="0"
-                          value={customSplits[member.id] || ""}
-                          onChange={(e) =>
-                            handleCustomSplitChange(member.id, e.target.value)
-                          }
-                          className="rounded-lg border border-gray-300 p-3 text-black outline-none transition focus:border-black focus:ring-1 focus:ring-black"
-                        />
-                      </div>
+                    <button
+                      onClick={() => {
+                        setExpenseMode("friend")
+                        setExpenseGroupId("")
+                      }}
+                      className={`rounded-xl px-4 py-2 text-white transition-all ${expenseMode === "friend" ? "bg-black" : "bg-gray-500"}`}
+                    >
+                      Gasto con amigo
+                    </button>
+                  </div>
+
+                  <input
+                    placeholder="Concepto (ej: cena)"
+                    value={expenseTitle}
+                    onChange={(e) => setExpenseTitle(e.target.value)}
+                    className="mt-3 w-full rounded-lg border border-gray-300 p-3 text-black outline-none"
+                  />
+
+                  <input
+                    type="number"
+                    placeholder="Cantidad total"
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                    className="mt-3 w-full rounded-lg border border-gray-300 p-3 text-black outline-none"
+                  />
+
+                  {expenseMode === "group" ? (
+                    <select
+                      value={expenseGroupId}
+                      onChange={(e) => {
+                        setExpenseGroupId(e.target.value)
+                        setPaidBy("")
+                        setCustomSplits({})
+                      }}
+                      className="mt-3 w-full rounded-lg border border-gray-300 p-3 text-black outline-none"
+                    >
+                      <option value="">Grupo</option>
+                      {groups.map((g) => (
+                        <option key={g.id} value={g.id}>{g.name}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <select
+                      value={selectedFriendId}
+                      onChange={(e) => {
+                        setSelectedFriendId(e.target.value)
+                        setPaidBy(currentAppUser?.id || "")
+                        setCustomSplits({})
+                      }}
+                      className="mt-3 w-full rounded-lg border border-gray-300 p-3 text-black outline-none"
+                    >
+                      <option value="">Amigo</option>
+                      {friendList.map((friend) => (
+                        <option key={friend.id} value={friend.id}>{friend.name}</option>
+                      ))}
+                    </select>
+                  )}
+
+                  <select
+                    value={paidBy}
+                    onChange={(e) => setPaidBy(e.target.value)}
+                    disabled={expenseParticipants.length === 0}
+                    className="mt-3 w-full rounded-lg border border-gray-300 p-3 text-black outline-none disabled:bg-gray-100"
+                  >
+                    <option value="">
+                      {expenseParticipants.length === 0
+                        ? expenseMode === "group"
+                          ? "Ese grupo no tiene personas"
+                          : "Primero elige amigo"
+                        : "Quién paga"}
+                    </option>
+                    {expenseParticipants.map((u) => (
+                      <option key={u.id} value={u.id}>{u.name}</option>
                     ))}
+                  </select>
+
+                  <div className="mt-3 flex gap-2">
+                    <button
+                      onClick={() => setSplitMode("equal")}
+                      className={`rounded-xl px-3 py-2 text-white ${splitMode === "equal" ? "bg-black" : "bg-gray-500"}`}
+                    >
+                      Equitativa
+                    </button>
+                    <button
+                      onClick={() => setSplitMode("custom")}
+                      className={`rounded-xl px-3 py-2 text-white ${splitMode === "custom" ? "bg-black" : "bg-gray-500"}`}
+                    >
+                      Personalizada
+                    </button>
+                  </div>
+
+                  {splitMode === "custom" && expenseParticipants.length > 0 && (
+                    <div className="mt-3 rounded-xl border p-3">
+                      <h3 className="font-semibold text-black">Importe por persona</h3>
+                      <div className="mt-2 flex flex-col gap-2">
+                        {expenseParticipants.map((member) => (
+                          <div key={member.id} className="flex flex-col gap-1">
+                            <label className="text-sm text-black">{member.name}</label>
+                            <input
+                              type="number"
+                              step="0.01"
+                              placeholder="0"
+                              value={customSplits[member.id] || ""}
+                              onChange={(e) => handleCustomSplitChange(member.id, e.target.value)}
+                              className="rounded-lg border border-gray-300 p-3 text-black outline-none"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <button
+                    onClick={addExpense}
+                    className="mt-4 w-full rounded-xl bg-red-600 p-3 text-white transition-all hover:scale-105 active:scale-95"
+                  >
+                    Añadir gasto
+                  </button>
+                </div>
+
+                <div className="rounded-2xl bg-gray-50 p-4">
+                  <h3 className="font-semibold text-black">Vista previa</h3>
+                  <div className="mt-3 space-y-2 text-sm text-gray-700">
+                    <p><span className="font-semibold">Concepto:</span> {expenseTitle || "-"}</p>
+                    <p><span className="font-semibold">Cantidad:</span> {amount || "0"}€</p>
+                    <p><span className="font-semibold">Modo:</span> {expenseMode === "group" ? "Grupo" : "Amigo"}</p>
+                    <p><span className="font-semibold">Participantes:</span> {expenseParticipants.length}</p>
+                    <p><span className="font-semibold">Reparto:</span> {splitMode === "equal" ? "Equitativo" : "Personalizado"}</p>
+                  </div>
+
+                  <div className="mt-4 rounded-xl bg-white p-4 shadow-sm">
+                    <p className="text-sm font-semibold text-black">Consejos</p>
+                    <ul className="mt-2 space-y-1 text-xs text-gray-600">
+                      <li>• Quien paga debe estar dentro del gasto.</li>
+                      <li>• Usa personalizado si no todos ponen lo mismo.</li>
+                      <li>• Para balances directos, usa amigo en vez de grupo.</li>
+                    </ul>
                   </div>
                 </div>
-              )}
-
-              <button
-                onClick={addExpense}
-                className="mt-4 w-full rounded-xl bg-red-600 p-3 text-white transition-all hover:scale-105 active:scale-95"
-              >
-                Añadir gasto
-              </button>
+              </div>
             </div>
 
-            <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
+            <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
               <h2 className="text-xl font-semibold text-black">Miembros por grupo</h2>
-
               <div className="mt-3 flex flex-col gap-4">
                 {groupsWithMembers.length === 0 ? (
                   <p className="text-gray-500">No hay grupos todavía</p>
                 ) : (
                   groupsWithMembers.map((group) => (
                     <div key={group.id} className="rounded border p-3">
-                      <button
-                        onClick={() => toggleMemberGroup(group.id)}
-                        className="flex w-full items-center justify-between text-left"
-                      >
+                      <button onClick={() => toggleMemberGroup(group.id)} className="flex w-full items-center justify-between text-left">
                         <h3 className="font-bold text-black">{group.name}</h3>
-                        <span className="text-black">
-                          {openMemberGroups[group.id] ? "▲" : "▼"}
-                        </span>
+                        <span className="text-black">{openMemberGroups[group.id] ? "▲" : "▼"}</span>
                       </button>
 
                       {openMemberGroups[group.id] && (
                         <div className="mt-2">
                           {group.members.length === 0 ? (
-                            <p className="text-sm text-gray-500">
-                              Todavía no hay personas en este grupo
-                            </p>
+                            <p className="text-sm text-gray-500">Todavía no hay personas en este grupo</p>
                           ) : (
                             <ul className="flex flex-col gap-1">
                               {group.members.map((member) => (
-                                <li key={member.id} className="text-black">
-                                  - {member.name}
-                                </li>
+                                <li key={member.id} className="text-black">- {member.name}</li>
                               ))}
                             </ul>
                           )}
@@ -1785,32 +1980,68 @@ const closeMorosoGame = () => {
                   ))
                 )}
               </div>
+
+              <div className="mt-6 grid gap-4 lg:grid-cols-2">
+                <div className="rounded-2xl bg-gray-50 p-4">
+                  <h3 className="text-lg font-semibold text-black">Crear grupo</h3>
+                  <div className="mt-3 flex gap-2">
+                    <input
+                      value={groupName}
+                      onChange={(e) => setGroupName(e.target.value)}
+                      placeholder="Nombre del grupo"
+                      className="w-full rounded-lg border border-gray-300 p-3 text-black"
+                    />
+                    <button onClick={addGroup} className="rounded-xl bg-black px-4 py-3 text-white">
+                      Crear
+                    </button>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl bg-gray-50 p-4">
+                  <h3 className="text-lg font-semibold text-black">Añadir persona a grupo</h3>
+                  <div className="mt-3 grid gap-2">
+                    <select value={selectedUserId} onChange={(e) => setSelectedUserId(e.target.value)} className="rounded-lg border border-gray-300 p-3 text-black">
+                      <option value="">Persona</option>
+                      {friendList.map((u) => (
+                        <option key={u.id} value={u.id}>{u.name}</option>
+                      ))}
+                    </select>
+
+                    <select value={selectedGroupId} onChange={(e) => setSelectedGroupId(e.target.value)} className="rounded-lg border border-gray-300 p-3 text-black">
+                      <option value="">Grupo</option>
+                      {groups.map((g) => (
+                        <option key={g.id} value={g.id}>{g.name}</option>
+                      ))}
+                    </select>
+
+                    <button onClick={addPersonToGroup} className="rounded-xl bg-black px-4 py-3 text-white">
+                      Añadir
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         )}
 
         {screen === "balances" && (
-          <div className="mx-auto flex max-w-3xl animate-[fadeIn_.35s_ease] flex-col gap-6">
-            <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
+          <div className="mx-auto flex max-w-4xl animate-[fadeIn_.35s_ease] flex-col gap-6">
+            <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
               <h2 className="text-xl font-semibold text-black">Balances por grupo</h2>
-              <p className="mt-1 text-sm text-gray-500">
-                Aquí solo cuentan los gastos de ese grupo, no el balance total global con esa persona.
-              </p>
+              <p className="mt-1 text-sm text-gray-500">Visual más claro para entender quién debe y cuánto.</p>
 
-              <div className="mt-3 flex flex-col gap-4">
+              <div className="mt-4 flex flex-col gap-4">
                 {groups.length === 0 ? (
                   <p className="text-gray-500">No hay grupos todavía</p>
                 ) : (
                   groups.map((group) => {
                     const balances = balancesByGroup[group.id] || []
                     const morosoGrupo = morosoPorGrupo[group.id]
+                    const maxAmount = balances.length > 0 ? Math.max(...balances.map((b) => b.amount)) : 0
 
                     return (
-                      <div key={group.id} className="rounded border p-3">
-                        <button
-                          onClick={() => toggleBalanceGroup(group.id)}
-                          className="flex w-full items-center justify-between text-left"
-                        >
+                      <div key={group.id} className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+                        <button onClick={() => toggleBalanceGroup(group.id)} className="flex w-full items-center justify-between text-left">
                           <div>
                             <h3 className="font-bold text-black">{group.name}</h3>
                             {morosoGrupo && (
@@ -1819,38 +2050,40 @@ const closeMorosoGame = () => {
                               </p>
                             )}
                           </div>
-                          <span className="text-black">
-                            {openBalanceGroups[group.id] ? "▲" : "▼"}
-                          </span>
+                          <span className="text-black">{openBalanceGroups[group.id] ? "▲" : "▼"}</span>
                         </button>
 
                         {openBalanceGroups[group.id] && (
-                          <div className="mt-2">
+                          <div className="mt-3 space-y-3">
                             {balances.length === 0 ? (
-                              <p className="text-sm text-gray-500">
-                                No hay deudas en este grupo
-                              </p>
+                              <p className="text-sm text-gray-500">No hay deudas en este grupo</p>
                             ) : (
-                              <ul className="flex flex-col gap-3">
-                                {balances.map((item, index) => (
-                                  <li
-                                    key={index}
-                                    className="flex flex-col gap-2 rounded border p-2 text-black"
-                                  >
-                                    <span>
-                                      {getUserName(item.debtorId)} debe {item.amount.toFixed(2)}€ a{" "}
-                                      {getUserName(item.creditorId)}
-                                    </span>
+                              balances.map((item, index) => (
+                                <div key={index} className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+                                  <div className="mb-3 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                                    <div>
+                                      <p className="font-semibold text-black">{getUserName(item.debtorId)}</p>
+                                      <p className="text-sm text-gray-500">Debe a {getUserName(item.creditorId)}</p>
+                                    </div>
 
-                                    <button
-                                      onClick={() => settleBalance(item)}
-                                      className="rounded bg-black px-3 py-2 text-white transition-all hover:scale-105 active:scale-95"
-                                    >
-                                      Saldar deuda
-                                    </button>
-                                  </li>
-                                ))}
-                              </ul>
+                                    <div className="flex items-center gap-3">
+                                      <span className="rounded-full bg-red-100 px-3 py-1 text-sm font-bold text-red-700">
+                                        {item.amount.toFixed(2)}€
+                                      </span>
+                                      <button onClick={() => settleBalance(item)} className="rounded-xl bg-black px-4 py-3 text-white">
+                                        Saldar
+                                      </button>
+                                    </div>
+                                  </div>
+
+                                  <div className="h-3 w-full overflow-hidden rounded-full bg-gray-100">
+                                    <div
+                                      className="h-full rounded-full bg-gradient-to-r from-yellow-400 via-orange-500 to-red-600"
+                                      style={{ width: `${maxAmount > 0 ? Math.max((item.amount / maxAmount) * 100, 12) : 12}%` }}
+                                    />
+                                  </div>
+                                </div>
+                              ))
                             )}
                           </div>
                         )}
@@ -1864,18 +2097,18 @@ const closeMorosoGame = () => {
         )}
 
         {screen === "historial" && (
-          <div className="mx-auto flex max-w-3xl animate-[fadeIn_.35s_ease] flex-col gap-6">
-            <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
-              <button
-                onClick={() => setShowExpenseHistory((prev) => !prev)}
-                className="flex w-full items-center justify-between text-left"
-              >
-                <h2 className="text-xl font-semibold text-black">Historial de gastos</h2>
+          <div className="mx-auto flex max-w-4xl animate-[fadeIn_.35s_ease] flex-col gap-6">
+            <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+              <button onClick={() => setShowExpenseHistory((prev) => !prev)} className="flex w-full items-center justify-between text-left">
+                <div>
+                  <h2 className="text-xl font-semibold text-black">Historial de gastos</h2>
+                  <p className="mt-1 text-sm text-gray-500">Todos los movimientos normales guardados.</p>
+                </div>
                 <span className="text-black">{showExpenseHistory ? "▲" : "▼"}</span>
               </button>
 
               {showExpenseHistory && (
-                <div className="mt-3">
+                <div className="mt-4">
                   {normalExpenses.length === 0 ? (
                     <p className="text-gray-500">Todavía no hay gastos normales</p>
                   ) : (
@@ -1885,36 +2118,22 @@ const closeMorosoGame = () => {
                           <div className="flex items-start justify-between gap-3">
                             <div>
                               <p className="font-semibold text-black">{e.title}</p>
-                              <p className="mt-1 text-sm text-gray-700">
-                                {e.amount}€ · {getGroupName(e.group_id)}
-                              </p>
-                              <p className="text-sm text-gray-700">
-                                Pagó: {getUserName(e.paid_by)}
-                              </p>
-                              <p className="mt-2 text-xs text-gray-500">
-                                {formatDate(e.created_at)}
-                              </p>
+                              <p className="mt-1 text-sm text-gray-700">{e.amount}€ · {getGroupName(e.group_id)}</p>
+                              <p className="text-sm text-gray-700">Pagó: {getUserName(e.paid_by)}</p>
+                              <p className="mt-2 text-xs text-gray-500">{formatDate(e.created_at)}</p>
                             </div>
-
                             <div className="rounded-full bg-white px-3 py-1 text-sm font-semibold text-black shadow-sm">
                               {e.group_id ? "Grupo" : "Individual"}
                             </div>
                           </div>
 
                           <div className="mt-3 rounded-lg bg-white p-3">
-                            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                              Reparto
-                            </p>
-                            <p className="mt-1 text-sm text-black">
-                              {getExpensePeopleSummary(e.id)}
-                            </p>
+                            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Reparto</p>
+                            <p className="mt-1 text-sm text-black">{getExpensePeopleSummary(e.id)}</p>
                           </div>
 
                           {isAdmin && (
-                            <button
-                              onClick={() => deleteExpense(e.id)}
-                              className="mt-3 rounded bg-black px-3 py-2 text-white transition-all hover:scale-105 active:scale-95"
-                            >
+                            <button onClick={() => deleteExpense(e.id)} className="mt-3 rounded bg-black px-3 py-2 text-white">
                               Borrar gasto
                             </button>
                           )}
@@ -1926,19 +2145,17 @@ const closeMorosoGame = () => {
               )}
             </div>
 
-            <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
-              <button
-                onClick={() => setShowSettledHistory((prev) => !prev)}
-                className="flex w-full items-center justify-between text-left"
-              >
-                <h2 className="text-xl font-semibold text-black">
-                  Historial de deudas saldadas
-                </h2>
+            <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+              <button onClick={() => setShowSettledHistory((prev) => !prev)} className="flex w-full items-center justify-between text-left">
+                <div>
+                  <h2 className="text-xl font-semibold text-black">Historial de deudas saldadas</h2>
+                  <p className="mt-1 text-sm text-gray-500">Los movimientos ya resueltos también cuentan.</p>
+                </div>
                 <span className="text-black">{showSettledHistory ? "▲" : "▼"}</span>
               </button>
 
               {showSettledHistory && (
-                <div className="mt-3">
+                <div className="mt-4">
                   {settledExpenses.length === 0 ? (
                     <p className="text-gray-500">Todavía no hay deudas saldadas</p>
                   ) : (
@@ -1948,36 +2165,20 @@ const closeMorosoGame = () => {
                           <div className="flex items-start justify-between gap-3">
                             <div>
                               <p className="font-semibold text-black">Saldar deuda</p>
-                              <p className="mt-1 text-sm text-gray-700">
-                                {e.amount}€ · {getGroupName(e.group_id)}
-                              </p>
-                              <p className="text-sm text-gray-700">
-                                Pagó: {getUserName(e.paid_by)}
-                              </p>
-                              <p className="mt-2 text-xs text-gray-500">
-                                {formatDate(e.created_at)}
-                              </p>
+                              <p className="mt-1 text-sm text-gray-700">{e.amount}€ · {getGroupName(e.group_id)}</p>
+                              <p className="text-sm text-gray-700">Pagó: {getUserName(e.paid_by)}</p>
+                              <p className="mt-2 text-xs text-gray-500">{formatDate(e.created_at)}</p>
                             </div>
-
-                            <div className="rounded-full bg-white px-3 py-1 text-sm font-semibold text-green-700 shadow-sm">
-                              Saldado
-                            </div>
+                            <div className="rounded-full bg-white px-3 py-1 text-sm font-semibold text-green-700 shadow-sm">Saldado</div>
                           </div>
 
                           <div className="mt-3 rounded-lg bg-white p-3">
-                            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                              Movimiento
-                            </p>
-                            <p className="mt-1 text-sm text-black">
-                              {getExpensePeopleSummary(e.id)}
-                            </p>
+                            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Movimiento</p>
+                            <p className="mt-1 text-sm text-black">{getExpensePeopleSummary(e.id)}</p>
                           </div>
 
                           {isAdmin && (
-                            <button
-                              onClick={() => deleteExpense(e.id)}
-                              className="mt-3 rounded bg-black px-3 py-2 text-white transition-all hover:scale-105 active:scale-95"
-                            >
+                            <button onClick={() => deleteExpense(e.id)} className="mt-3 rounded bg-black px-3 py-2 text-white">
                               Borrar registro
                             </button>
                           )}
@@ -1992,27 +2193,46 @@ const closeMorosoGame = () => {
         )}
 
         {screen === "moroso" && (
-          <div className="mx-auto flex max-w-3xl animate-[fadeIn_.35s_ease] flex-col gap-6">
-            <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
+          <div className="mx-auto flex max-w-4xl animate-[fadeIn_.35s_ease] flex-col gap-6">
+            <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
               <h2 className="mb-3 text-xl font-semibold text-black">Moroso del mes</h2>
 
               {!moroso ? (
                 <p className="text-green-600">No hay morosos. Hoy la peña se ha portado.</p>
               ) : (
-                <div className="mt-4 flex flex-col items-center gap-4 rounded-2xl bg-gradient-to-br from-red-500 to-black p-6 text-white shadow-xl animate-pulse">
-                  <div className="text-5xl">💀</div>
+                <div className="grid gap-6 lg:grid-cols-[1fr_0.9fr]">
+                  <div className="rounded-2xl bg-gradient-to-br from-red-500 to-black p-6 text-white shadow-xl">
+                    <div className="text-5xl">💀</div>
+                    <p className="mt-4 text-2xl font-bold">{getUserName(moroso.friendId)}</p>
+                    <p className="mt-2 text-lg">te debe {moroso.amount.toFixed(2)}€</p>
+                    <p className="mt-3 text-sm opacity-80">Nivel de morosidad: extremo</p>
+                  </div>
 
-                  <p className="text-2xl font-bold">
-                    {getUserName(moroso.friendId)}
-                  </p>
+                  <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+                    <h3 className="text-lg font-bold text-black">Top balances contigo</h3>
+                    <div className="mt-4 space-y-3">
+                      {friendBalances
+                        .filter((item) => item.amount > 0)
+                        .slice(0, 5)
+                        .map((item, index) => (
+                          <div key={item.friendId} className="flex items-center justify-between rounded-2xl bg-white p-4 shadow-sm">
+                            <div className="flex items-center gap-3">
+                              <div className="grid h-10 w-10 place-items-center rounded-full bg-black text-sm font-bold text-white">
+                                {index + 1}
+                              </div>
+                              <div>
+                                <p className="font-semibold text-black">{getUserName(item.friendId)}</p>
+                                <p className="text-xs text-gray-500">Debe contigo</p>
+                              </div>
+                            </div>
 
-                  <p className="text-lg">
-                    te debe {moroso.amount.toFixed(2)}€
-                  </p>
-
-                  <p className="text-sm opacity-80">
-                    Nivel de morosidad: extremo
-                  </p>
+                            <div className="rounded-full bg-red-100 px-3 py-1 text-sm font-bold text-red-700">
+                              {item.amount.toFixed(2)}€
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
@@ -2020,146 +2240,191 @@ const closeMorosoGame = () => {
         )}
       </div>
 
-{showGameFullscreen && (
-  <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black px-4 py-4">
-    <div className="relative h-full w-full overflow-hidden rounded-none bg-gradient-to-br from-zinc-950 via-slate-900 to-black text-white md:rounded-3xl">
-      <div className="absolute inset-0 opacity-60">
-        <div className="absolute left-10 top-10 h-32 w-32 rounded-full bg-emerald-400/20 blur-3xl animate-pulse" />
-        <div className="absolute right-10 bottom-10 h-32 w-32 rounded-full bg-red-400/20 blur-3xl animate-pulse" />
-      </div>
+      {showGameFullscreen && activeGame && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black px-4 py-4">
+          <div className="relative h-full w-full overflow-hidden rounded-none bg-gradient-to-br from-zinc-950 via-slate-900 to-black text-white md:rounded-3xl">
+            <div className="absolute inset-0 opacity-60">
+              <div className="absolute left-10 top-10 h-32 w-32 rounded-full bg-emerald-400/20 blur-3xl animate-pulse" />
+              <div className="absolute right-10 bottom-10 h-32 w-32 rounded-full bg-red-400/20 blur-3xl animate-pulse" />
+            </div>
 
-      <div className="relative z-10 flex h-full flex-col">
-        <div className="flex items-center justify-between border-b border-white/10 px-4 py-4 sm:px-6">
-          <div>
-            <h3 className="text-xl font-black">A por el moroso</h3>
-            <p className="text-sm text-white/70">
-              Pantalla completa activada. Ahora sí, presión máxima.
-            </p>
-          </div>
+            <div className="relative z-10 flex h-full flex-col">
+              <div className="flex items-center justify-between border-b border-white/10 px-4 py-4 sm:px-6">
+                <div>
+                  <h3 className="text-xl font-black">{GAME_INFO[activeGame].title}</h3>
+                  <p className="text-sm text-white/70">{GAME_INFO[activeGame].description}</p>
+                </div>
 
-          <button
-            onClick={closeMorosoGame}
-            className="rounded-xl bg-red-500 px-4 py-2 font-semibold text-white transition-all hover:scale-105 active:scale-95"
-          >
-            Salir
-          </button>
-        </div>
+                <button onClick={closeGame} className="rounded-xl bg-red-500 px-4 py-2 font-semibold text-white">
+                  Salir
+                </button>
+              </div>
 
-        <div className="grid gap-3 px-4 py-4 sm:grid-cols-3 sm:px-6">
-          <div className="rounded-2xl bg-white/10 p-4 backdrop-blur">
-            <p className="text-xs uppercase tracking-wide text-white/60">Tiempo</p>
-            <p className="text-2xl font-black">{gameTimeLeft}s</p>
-          </div>
-
-          <div className="rounded-2xl bg-white/10 p-4 backdrop-blur">
-            <p className="text-xs uppercase tracking-wide text-white/60">Pasta recuperada</p>
-            <p className="text-2xl font-black">{gameCash}€</p>
-          </div>
-
-          <div className="rounded-2xl bg-white/10 p-4 backdrop-blur">
-            <p className="text-xs uppercase tracking-wide text-white/60">Presión</p>
-            <p className="text-2xl font-black">{gamePressure}%</p>
-          </div>
-        </div>
-
-        <div className="px-4 sm:px-6">
-          <div className="h-4 w-full overflow-hidden rounded-full bg-white/10">
-            <div
-              className="h-full rounded-full bg-gradient-to-r from-emerald-500 via-yellow-400 to-red-500 transition-all duration-200"
-              style={{ width: `${Math.min(gamePressure, 100)}%` }}
-            />
-          </div>
-        </div>
-
-        <div className="relative mt-4 flex-1 overflow-hidden px-4 pb-4 sm:px-6 sm:pb-6">
-          <div className="relative h-full min-h-[420px] overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-green-50 via-yellow-50 to-red-50">
-            {!gameRunning && !gameMessage && (
-              <div className="absolute inset-0 grid place-items-center p-6 text-center">
-                <div className="max-w-md rounded-3xl bg-white/90 p-6 shadow-xl">
-                  <p className="text-5xl">😈</p>
-                  <p className="mt-3 text-lg font-bold text-black">Pulsa empezar y mete presión</p>
-                  <p className="mt-2 text-sm text-gray-600">
-                    Cuanto más le toques, más pasta rascas y más nervioso se pone.
-                  </p>
+              <div className="grid gap-3 px-4 py-4 sm:grid-cols-3 sm:px-6">
+                <div className="rounded-2xl bg-white/10 p-4 backdrop-blur">
+                  <p className="text-xs uppercase tracking-wide text-white/60">Tiempo</p>
+                  <p className="text-2xl font-black">{gameTimeLeft}s</p>
+                </div>
+                <div className="rounded-2xl bg-white/10 p-4 backdrop-blur">
+                  <p className="text-xs uppercase tracking-wide text-white/60">Pasta recuperada</p>
+                  <p className="text-2xl font-black">{gameCash}€</p>
+                </div>
+                <div className="rounded-2xl bg-white/10 p-4 backdrop-blur">
+                  <p className="text-xs uppercase tracking-wide text-white/60">Presión</p>
+                  <p className="text-2xl font-black">{gamePressure}%</p>
                 </div>
               </div>
-            )}
 
-            {gameRunning && (
-              <>
-                <button
-                  onClick={hitMoroso}
-                  className="absolute z-20 flex h-24 w-24 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-black text-4xl text-white shadow-xl transition-transform active:scale-90"
-                  style={{
-                    left: `${morosoPosition.x}%`,
-                    top: `${morosoPosition.y}%`,
-                  }}
-                >
-                  💸
-                </button>
-
-                {coinBursts.map((coin) => (
+              <div className="px-4 sm:px-6">
+                <div className="h-4 w-full overflow-hidden rounded-full bg-white/10">
                   <div
-                    key={coin.id}
-                    className="pointer-events-none absolute z-30 -translate-x-1/2 -translate-y-1/2 text-2xl font-black text-emerald-600"
-                    style={{
-                      left: `${coin.x}%`,
-                      top: `${coin.y - 8}%`,
-                    }}
-                  >
-                    +{coin.value}€
-                  </div>
-                ))}
-
-                <div className="absolute bottom-4 left-4 rounded-xl bg-white/80 px-3 py-2 text-sm text-black shadow">
-                  Se está haciendo el loco... tú sigue apretando.
+                    className="h-full rounded-full bg-gradient-to-r from-emerald-500 via-yellow-400 to-red-500 transition-all duration-200"
+                    style={{ width: `${Math.min(gamePressure, 100)}%` }}
+                  />
                 </div>
+              </div>
 
-                <div className="absolute right-4 top-4 rounded-xl bg-white/80 px-3 py-2 text-sm text-black shadow">
-                  Tócalo antes de que se escape
-                </div>
-              </>
-            )}
-
-            {!gameRunning && gameMessage && (
-              <div className="absolute inset-0 grid place-items-center p-6 text-center">
-                <div className="max-w-md rounded-3xl bg-white/90 p-6 shadow-xl">
-                  <p className="text-5xl">{gameCash > 40 ? "🔥" : gameCash > 20 ? "😤" : "😂"}</p>
-                  <p className="mt-4 text-xl font-black text-black">{gameMessage}</p>
-                  <p className="mt-3 text-sm text-gray-600">
-                    Dinero recuperado en el juego: {gameCash}€
-                  </p>
-
-                  {moroso && (
-                    <p className="mt-2 text-sm font-semibold text-black">
-                      Pero recuerda: {getUserName(moroso.friendId)} aún te debe {moroso.amount.toFixed(2)}€
-                    </p>
+              <div className="relative mt-4 flex-1 overflow-hidden px-4 pb-4 sm:px-6 sm:pb-6">
+                <div className="relative h-full min-h-[420px] overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-green-50 via-yellow-50 to-red-50">
+                  {!gameRunning && gameMessage && (
+                    <div className="absolute inset-0 grid place-items-center p-6 text-center">
+                      <div className="max-w-md rounded-3xl bg-white/90 p-6 shadow-xl">
+                        <p className="text-5xl">{gameCash > 45 ? "🔥" : gameCash > 25 ? "😤" : "😂"}</p>
+                        <p className="mt-4 text-xl font-black text-black">{gameMessage}</p>
+                        <p className="mt-3 text-sm text-gray-600">Dinero recuperado: {gameCash}€</p>
+                        <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:justify-center">
+                          <button onClick={() => startGame(activeGame)} className="rounded-xl bg-black px-4 py-3 text-white">
+                            Volver a jugar
+                          </button>
+                          <button onClick={closeGame} className="rounded-xl bg-red-500 px-4 py-3 text-white">
+                            Salir
+                          </button>
+                        </div>
+                      </div>
+                    </div>
                   )}
 
-                  <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:justify-center">
-                    <button
-                      onClick={startMorosoGame}
-                      className="rounded-xl bg-black px-4 py-3 text-white transition-all hover:scale-105 active:scale-95"
-                    >
-                      Volver a meter presión
-                    </button>
+                  {gameRunning && activeGame === "moroso" && (
+                    <>
+                      <button
+                        onClick={hitMoroso}
+                        className="absolute z-20 flex h-24 w-24 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-black text-4xl text-white shadow-xl transition-transform active:scale-90"
+                        style={{ left: `${morosoPosition.x}%`, top: `${morosoPosition.y}%` }}
+                      >
+                        💸
+                      </button>
 
-                    <button
-                      onClick={closeMorosoGame}
-                      className="rounded-xl bg-red-500 px-4 py-3 text-white transition-all hover:scale-105 active:scale-95"
-                    >
-                      Salir
-                    </button>
-                  </div>
+                      {coinBursts.map((coin) => (
+                        <div
+                          key={coin.id}
+                          className="pointer-events-none absolute z-30 -translate-x-1/2 -translate-y-1/2 text-2xl font-black text-emerald-600"
+                          style={{ left: `${coin.x}%`, top: `${coin.y - 8}%` }}
+                        >
+                          +{coin.value}€
+                        </div>
+                      ))}
+                    </>
+                  )}
+
+                  {gameRunning && activeGame === "reflejos" && (
+                    <div className="grid h-full gap-3 p-6 sm:grid-cols-3">
+                      {reflexTiles.map((tile, index) => (
+                        <button
+                          key={tile.id}
+                          onClick={() => hitReflexTile(index)}
+                          className={`rounded-3xl text-4xl font-black shadow-xl transition-all hover:scale-105 active:scale-95 ${
+                            tile.kind === "money" ? "bg-emerald-500 text-white" : "bg-red-500 text-white"
+                          }`}
+                        >
+                          {tile.kind === "money" ? "€" : "✕"}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {gameRunning && activeGame === "memoria" && (
+                    <div className="flex h-full flex-col items-center justify-center p-6 text-center">
+                      <div className="mb-6 max-w-lg rounded-3xl bg-white/90 p-6 text-black shadow-xl">
+                        <p className="text-lg font-black">{memoryShowing ? "Memoriza la secuencia" : "Repite la secuencia"}</p>
+                        <p className="mt-2 text-sm text-gray-600">
+                          Cuando se iluminen los números, guárdalos. Luego púlsalos en el mismo orden.
+                        </p>
+                      </div>
+
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        {[0, 1, 2, 3].map((value) => (
+                          <button
+                            key={value}
+                            onClick={() => pressMemory(value)}
+                            className={`grid h-28 w-28 place-items-center rounded-3xl text-3xl font-black shadow-xl transition-all ${
+                              memoryFlash === value ? "bg-black text-white scale-110" : "bg-white text-black"
+                            }`}
+                          >
+                            {value + 1}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {gameRunning && activeGame === "excusas" && (
+                    <div className="flex h-full flex-col items-center justify-center p-6">
+                      <div className="mb-6 max-w-xl rounded-3xl bg-white/90 p-6 text-center text-black shadow-xl">
+                        <p className="text-2xl font-black">Encuentra el pago real</p>
+                        <p className="mt-2 text-sm text-gray-600">
+                          Deja de tragarte excusas y caza la única opción que suena a cobro de verdad.
+                        </p>
+                      </div>
+
+                      <div className="grid w-full max-w-3xl gap-4 md:grid-cols-3">
+                        {excuseOptions.map((option, index) => (
+                          <button
+                            key={`${option}-${index}`}
+                            onClick={() => pickExcuse(index)}
+                            className="rounded-3xl bg-white p-5 text-left text-black shadow-xl transition-all hover:scale-[1.02] active:scale-[0.98]"
+                          >
+                            <p className="text-lg font-bold">{option}</p>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {gameRunning && activeGame === "monedas" && (
+                    <div className="relative h-full">
+                      {coinRainItems.map((item) => (
+                        <button
+                          key={item.id}
+                          onClick={() => clickCoinRainItem(item.id)}
+                          className={`absolute z-20 grid h-16 w-16 place-items-center rounded-full text-2xl shadow-xl transition-all hover:scale-105 active:scale-95 ${
+                            item.kind === "coin" ? "bg-yellow-400 text-black" : "bg-red-500 text-white"
+                          }`}
+                          style={{ left: `${item.left}%`, top: `${item.top}%` }}
+                        >
+                          {item.kind === "coin" ? "🪙" : "💣"}
+                        </button>
+                      ))}
+
+                      <div className="absolute bottom-4 left-4 rounded-xl bg-white/80 px-3 py-2 text-sm text-black shadow">
+                        Monedas sí. Trampas no.
+                      </div>
+                    </div>
+                  )}
+
+                  {!gameRunning && !gameMessage && (
+                    <div className="absolute inset-0 grid place-items-center p-6 text-center">
+                      <div className="max-w-md rounded-3xl bg-white/90 p-6 shadow-xl">
+                        <p className="text-5xl">{GAME_INFO[activeGame].icon}</p>
+                        <p className="mt-3 text-lg font-bold text-black">{GAME_INFO[activeGame].subtitle}</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
-            )}
+            </div>
           </div>
         </div>
-      </div>
-    </div>
-  </div>
-)}
+      )}
 
       {tagModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
@@ -2172,20 +2437,14 @@ const closeMorosoGame = () => {
                 <h3 className="mt-4 text-2xl font-black text-black">{tagModal.title}</h3>
               </div>
 
-              <button
-                onClick={() => setTagModal(null)}
-                className="rounded-full bg-gray-100 px-3 py-2 text-sm font-semibold text-black"
-              >
+              <button onClick={() => setTagModal(null)} className="rounded-full bg-gray-100 px-3 py-2 text-sm font-semibold text-black">
                 ✕
               </button>
             </div>
 
             <p className="mt-4 text-sm leading-6 text-gray-600">{tagModal.description}</p>
 
-            <button
-              onClick={() => setTagModal(null)}
-              className="mt-6 w-full rounded-xl bg-black px-4 py-3 text-white"
-            >
+            <button onClick={() => setTagModal(null)} className="mt-6 w-full rounded-xl bg-black px-4 py-3 text-white">
               Vale, ya sé de qué pie cojea
             </button>
           </div>
