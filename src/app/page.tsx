@@ -78,6 +78,16 @@ type Friendship = {
   created_at?: string
 }
 
+type NotificationItem = {
+  id: string
+  title: string
+  message: string
+  createdAt: string
+  type: "invite" | "expense" | "debt" | "reminder"
+  ctaLabel?: string
+  ctaScreen?: Screen
+}
+
 type SplitMode = "equal" | "custom"
 type ExpenseMode = "group" | "friend"
 type Screen = "home" | "amigos" | "gastos" | "balances" | "historial" | "moroso" | "perfil"
@@ -228,6 +238,10 @@ export default function Home() {
   const [profileAvatarUrl, setProfileAvatarUrl] = useState("")
   const [profileSaving, setProfileSaving] = useState(false)
   const [avatarUploading, setAvatarUploading] = useState(false)
+  const [notificationsOpen, setNotificationsOpen] = useState(false)
+  const [notificationReadIds, setNotificationReadIds] = useState<string[]>([])
+  const [manualNotifications, setManualNotifications] = useState<NotificationItem[]>([])
+  const [dbNotifications, setDbNotifications] = useState<NotificationItem[]>([])
 
   const [showGuide, setShowGuide] = useState(true)
   const [showGamesMenu, setShowGamesMenu] = useState(false)
@@ -278,6 +292,30 @@ export default function Home() {
   const currentAppUser = useMemo(() => {
     return users.find((u) => u.auth_user_id === user?.id) || null
   }, [users, user])
+
+  useEffect(() => {
+    if (!user?.id) return
+    try {
+      const savedRead = window.localStorage.getItem(`tedebo_notification_reads_${user.id}`)
+      const savedManual = window.localStorage.getItem(`tedebo_manual_notifications_${user.id}`)
+      if (savedRead) setNotificationReadIds(JSON.parse(savedRead))
+      if (savedManual) setManualNotifications(JSON.parse(savedManual))
+    } catch {}
+  }, [user?.id])
+
+  useEffect(() => {
+    if (!user?.id) return
+    try {
+      window.localStorage.setItem(`tedebo_notification_reads_${user.id}`, JSON.stringify(notificationReadIds))
+    } catch {}
+  }, [notificationReadIds, user?.id])
+
+  useEffect(() => {
+    if (!user?.id) return
+    try {
+      window.localStorage.setItem(`tedebo_manual_notifications_${user.id}`, JSON.stringify(manualNotifications))
+    } catch {}
+  }, [manualNotifications, user?.id])
 
   useEffect(() => {
     if (!user) return
@@ -503,6 +541,117 @@ export default function Home() {
     await getUsers()
   }
 
+
+  const createNotification = async ({
+    userId,
+    title,
+    message,
+    type,
+    ctaLabel,
+    ctaScreen,
+  }: {
+    userId: string
+    title: string
+    message: string
+    type: NotificationItem["type"]
+    ctaLabel?: string
+    ctaScreen?: Screen
+  }) => {
+    await supabase.from("notifications").insert({
+      user_id: userId,
+      title,
+      message,
+      type,
+      read: false,
+    })
+
+    if (currentAppUser?.id === userId) {
+      setDbNotifications((prev) => [
+        {
+          id: `temp-${Date.now()}-${Math.random()}`,
+          title,
+          message,
+          createdAt: new Date().toISOString(),
+          type,
+          ctaLabel,
+          ctaScreen,
+        },
+        ...prev,
+      ])
+    }
+  }
+
+  const loadNotifications = async () => {
+    if (!currentAppUser) return
+
+    const { data } = await supabase
+      .from("notifications")
+      .select("*")
+      .eq("user_id", currentAppUser.id)
+      .order("created_at", { ascending: false })
+
+    if (!data) return
+
+    const mapped: NotificationItem[] = data.map((n: any) => ({
+      id: n.id,
+      title: n.title,
+      message: n.message,
+      createdAt: n.created_at,
+      type: n.type,
+      ctaLabel: n.type === "invite" ? "Ver amigos" : n.type === "expense" ? "Ver historial" : "Ver amigos",
+      ctaScreen: n.type === "expense" ? "historial" : "amigos",
+    }))
+
+    setDbNotifications(mapped)
+    setNotificationReadIds((prev) =>
+      Array.from(new Set([...prev, ...data.filter((n: any) => n.read).map((n: any) => n.id)]))
+    )
+  }
+
+  useEffect(() => {
+    loadNotifications()
+  }, [currentAppUser?.id])
+
+  const pushManualNotification = (item: NotificationItem) => {
+    setManualNotifications((prev) => [item, ...prev].slice(0, 25))
+  }
+
+  const copyText = async (value: string) => {
+    try {
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(value)
+        return true
+      }
+    } catch {}
+    return false
+  }
+
+  const markAllNotificationsAsRead = async (items: NotificationItem[]) => {
+    const ids = items.map((item) => item.id)
+    setNotificationReadIds((prev) => Array.from(new Set([...prev, ...ids])))
+
+    const dbIds = ids.filter((id) =>
+      dbNotifications.some((notificationItem) => notificationItem.id === id)
+    )
+
+    if (dbIds.length > 0) {
+      await supabase.from("notifications").update({ read: true }).in("id", dbIds)
+      await loadNotifications()
+    }
+  }
+
+  const handleNotificationClick = async (item: NotificationItem) => {
+    setNotificationReadIds((prev) => Array.from(new Set([...prev, item.id])))
+
+    if (dbNotifications.some((notificationItem) => notificationItem.id === item.id)) {
+      await supabase.from("notifications").update({ read: true }).eq("id", item.id)
+      await loadNotifications()
+    }
+
+    if (item.ctaScreen) setScreen(item.ctaScreen)
+    setNotificationsOpen(false)
+  }
+
   const addUser = async () => {
     if (!name.trim() || !user || !currentAppUser) {
       alert("Introduce un correo")
@@ -565,6 +714,17 @@ export default function Home() {
     if (error) {
       alert("Error al enviar invitación")
       return
+    }
+
+    if (existingUserByEmail?.id) {
+      await createNotification({
+        userId: existingUserByEmail.id,
+        title: "Nueva invitación",
+        message: `${currentAppUser.name || "Un colega"} te ha enviado una invitación en TeDebo.`,
+        type: "invite",
+        ctaLabel: "Ver amigos",
+        ctaScreen: "amigos",
+      })
     }
 
     const res = await fetch("/api/send-invite", {
@@ -643,6 +803,15 @@ export default function Home() {
       .eq("invited_by", senderAppUser.auth_user_id)
       .eq("email", user.email?.toLowerCase() || "")
       .eq("status", "pending")
+
+    await createNotification({
+      userId: senderAppUser.id,
+      title: "Invitación aceptada",
+      message: `${currentAppUser.name || "Un colega"} ha aceptado tu invitación.`,
+      type: "invite",
+      ctaLabel: "Ver amigos",
+      ctaScreen: "amigos",
+    })
 
     showToast(alreadyFriend ? "Ya erais amigos" : "Amigo añadido correctamente")
     await getReceivedInvitations()
@@ -1154,6 +1323,19 @@ export default function Home() {
 
     await supabase.from("expense_splits").insert(splitsToInsert)
 
+    for (const participant of participants) {
+      if (participant.id === currentAppUser.id) continue
+
+      await createNotification({
+        userId: participant.id,
+        title: "Nuevo gasto",
+        message: `${currentAppUser.name || "Un colega"} añadió "${expenseTitle}" por ${amountNumber.toFixed(2)}€.`,
+        type: "expense",
+        ctaLabel: "Ver historial",
+        ctaScreen: "historial",
+      })
+    }
+
     resetExpenseForm()
     showToast("Gasto añadido ✅")
     await getExpenses()
@@ -1381,7 +1563,110 @@ export default function Home() {
       .sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount))
   }, [currentAppUser, visibleExpenses, visibleExpenseSplits, groupMembers])
 
-  const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense.title !== "Saldar deuda"), [visibleExpenses])
+  
+  const notifications = useMemo(() => {
+    if (!currentAppUser || !user) {
+      return [...manualNotifications].sort(
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      )
+    }
+
+    const autoNotifications: NotificationItem[] = []
+
+    receivedInvitations
+      .filter((inv) => inv.status === "pending")
+      .slice(0, 5)
+      .forEach((inv) => {
+        autoNotifications.push({
+          id: `received-invite-${inv.id}`,
+          title: "Invitación pendiente",
+          message: `Tienes una invitación pendiente para ${inv.email}.`,
+          createdAt: inv.created_at || new Date().toISOString(),
+          type: "invite",
+          ctaLabel: "Ver amigos",
+          ctaScreen: "amigos",
+        })
+      })
+
+    sentInvitations
+      .filter((inv) => inv.status === "pending")
+      .slice(0, 5)
+      .forEach((inv) => {
+        autoNotifications.push({
+          id: `sent-invite-${inv.id}`,
+          title: "Invitación enviada",
+          message: `Tu invitación a ${inv.email} sigue pendiente.`,
+          createdAt: inv.created_at || new Date().toISOString(),
+          type: "invite",
+          ctaLabel: "Ver amigos",
+          ctaScreen: "amigos",
+        })
+      })
+
+    friendBalances
+      .filter((item) => item.amount > 0)
+      .slice(0, 5)
+      .forEach((item) => {
+        autoNotifications.push({
+          id: `friend-debt-${item.friendId}`,
+          title: "Te deben dinero",
+          message: `${getUserName(item.friendId)} te debe ${item.amount.toFixed(2)}€.`,
+          createdAt: new Date().toISOString(),
+          type: "debt",
+          ctaLabel: "Ver amigos",
+          ctaScreen: "amigos",
+        })
+      })
+
+    expenses
+      .filter((expense) => {
+        const participants = expenseSplits
+          .filter((split) => split.expense_id === expense.id)
+          .map((split) => split.user_id)
+        return participants.includes(currentAppUser.id)
+      })
+      .slice(0, 6)
+      .forEach((expense) => {
+        autoNotifications.push({
+          id: `expense-${expense.id}`,
+          title: "Movimiento reciente",
+          message: `${expense.title} · ${Number(expense.amount).toFixed(2)}€ · ${getGroupName(
+            expense.group_id
+          )}`,
+          createdAt: expense.created_at || new Date().toISOString(),
+          type: "expense",
+          ctaLabel: "Ver historial",
+          ctaScreen: "historial",
+        })
+      })
+
+    const merged = [...dbNotifications, ...manualNotifications, ...autoNotifications]
+    const deduped = merged.filter(
+      (item, index, arr) => arr.findIndex((candidate) => candidate.id === item.id) === index
+    )
+
+    return deduped.sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    )
+  }, [
+    currentAppUser,
+    user,
+    dbNotifications,
+    manualNotifications,
+    receivedInvitations,
+    sentInvitations,
+    friendBalances,
+    expenses,
+    expenseSplits,
+    groups,
+    users,
+  ])
+
+  const unreadNotificationsCount = useMemo(() => {
+    return notifications.filter((item) => !notificationReadIds.includes(item.id)).length
+  }, [notifications, notificationReadIds])
+
+const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense.title !== "Saldar deuda"), [visibleExpenses])
   const settledExpenses = useMemo(() => visibleExpenses.filter((expense) => expense.title === "Saldar deuda"), [visibleExpenses])
 
   const moroso = useMemo(() => {
@@ -1495,6 +1780,67 @@ export default function Home() {
     if (!item || item.amount === 0) return "Balance a cero"
     if (item.amount > 0) return `${getUserName(friendId)} te debe ${item.amount.toFixed(2)}€`
     return `Debes ${Math.abs(item.amount).toFixed(2)}€ a ${getUserName(friendId)}`
+  }
+
+  const handleClaimFriendPayment = async (friendId: string, amountValue: number) => {
+    const friendName = getUserName(friendId)
+    const message = `Ey ${friendName}, me debes ${amountValue.toFixed(2)}€ en TeDebo 😏 ¿Me lo pasas cuando puedas?`
+    const copied = await copyText(message)
+
+    pushManualNotification({
+      id: `manual-friend-${friendId}-${Date.now()}`,
+      title: "Recordatorio preparado",
+      message: `Has reclamado ${amountValue.toFixed(2)}€ a ${friendName}. ${copied ? "Se copió el mensaje." : "Copia el texto manualmente."}`,
+      createdAt: new Date().toISOString(),
+      type: "reminder",
+      ctaLabel: "Ver amigos",
+      ctaScreen: "amigos",
+    })
+
+    await createNotification({
+      userId: friendId,
+      title: "Te reclaman dinero 💸",
+      message: `${currentAppUser?.name || "Un colega"} te ha recordado que debes ${amountValue.toFixed(2)}€.`,
+      type: "reminder",
+      ctaLabel: "Ver amigos",
+      ctaScreen: "amigos",
+    })
+
+    showToast(copied ? "Recordatorio copiado 💸" : message)
+  }
+
+  const handleClaimGroupPayment = async (item: BalanceItem) => {
+    const debtorName = getUserName(item.debtorId)
+    const creditorName = getUserName(item.creditorId)
+    const groupName = getGroupName(item.groupId)
+    const youAreCreditor = currentAppUser?.id === item.creditorId
+
+    const message = youAreCreditor
+      ? `Ey ${debtorName}, me debes ${item.amount.toFixed(2)}€ del grupo ${groupName} 😏`
+      : `${debtorName} debe ${item.amount.toFixed(2)}€ a ${creditorName} en ${groupName}.`
+
+    const copied = await copyText(message)
+
+    pushManualNotification({
+      id: `manual-group-${item.groupId}-${item.debtorId}-${Date.now()}`,
+      title: "Recordatorio de grupo preparado",
+      message: `${debtorName} tiene pendiente ${item.amount.toFixed(2)}€ en ${groupName}. ${copied ? "Se copió el mensaje." : "Cópialo manualmente."}`,
+      createdAt: new Date().toISOString(),
+      type: "reminder",
+      ctaLabel: "Ver balances",
+      ctaScreen: "balances",
+    })
+
+    await createNotification({
+      userId: item.debtorId,
+      title: "Te reclaman un pago de grupo 💸",
+      message: `${creditorName} te ha reclamado ${item.amount.toFixed(2)}€ del grupo ${groupName}.`,
+      type: "reminder",
+      ctaLabel: "Ver balances",
+      ctaScreen: "balances",
+    })
+
+    showToast(copied ? "Reclamo copiado 📲" : message)
   }
 
   const openFriendExpense = (friendId: string) => {
@@ -1632,6 +1978,77 @@ export default function Home() {
               )}
             </div>
 
+            <div className="relative">
+              <button
+                onClick={() => {
+                  setNotificationsOpen((prev) => !prev)
+                  if (!notificationsOpen) markAllNotificationsAsRead(notifications)
+                }}
+                className="relative rounded-xl border border-gray-200 bg-white px-4 py-2 shadow-sm"
+              >
+                🔔
+                {unreadNotificationsCount > 0 && (
+                  <span className="absolute -right-1 -top-1 grid h-5 min-w-[20px] place-items-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+                    {unreadNotificationsCount > 9 ? "9+" : unreadNotificationsCount}
+                  </span>
+                )}
+              </button>
+
+              {notificationsOpen && (
+                <div className="absolute right-0 mt-2 z-50 w-[340px] max-w-[90vw] rounded-2xl border border-gray-200 bg-white p-3 shadow-2xl">
+                  <div className="mb-3 flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-black text-black">Notificaciones</p>
+                      <p className="text-xs text-gray-500">Invites, gastos y recordatorios.</p>
+                    </div>
+                    <button
+                      onClick={() => markAllNotificationsAsRead(notifications)}
+                      className="rounded-lg bg-gray-100 px-3 py-2 text-xs font-semibold text-black"
+                    >
+                      Marcar todo
+                    </button>
+                  </div>
+
+                  <div className="max-h-[420px] space-y-2 overflow-y-auto pr-1">
+                    {notifications.length === 0 ? (
+                      <div className="rounded-xl bg-gray-50 p-4 text-sm text-gray-500">
+                        No tienes notificaciones por ahora.
+                      </div>
+                    ) : (
+                      notifications.map((item) => {
+                        const unread = !notificationReadIds.includes(item.id)
+                        return (
+                          <button
+                            key={item.id}
+                            onClick={() => handleNotificationClick(item)}
+                            className={`block w-full rounded-xl border p-3 text-left transition-all hover:bg-gray-50 ${
+                              unread ? "border-black/10 bg-gray-50" : "border-gray-200 bg-white"
+                            }`}
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div>
+                                <p className="text-sm font-bold text-black">{item.title}</p>
+                                <p className="mt-1 text-xs leading-5 text-gray-600">{item.message}</p>
+                              </div>
+                              {unread && <span className="mt-1 h-2 w-2 rounded-full bg-red-500" />}
+                            </div>
+                            <div className="mt-2 flex items-center justify-between">
+                              <span className="text-[11px] text-gray-400">{formatDate(item.createdAt)}</span>
+                              {item.ctaLabel && (
+                                <span className="rounded-full bg-black px-2 py-1 text-[10px] font-semibold text-white">
+                                  {item.ctaLabel}
+                                </span>
+                              )}
+                            </div>
+                          </button>
+                        )
+                      })
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
             <button
               onClick={async () => {
                 await supabase.auth.signOut()
@@ -1761,6 +2178,37 @@ export default function Home() {
               </div>
             </div>
 
+            <div className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
+              <div className="mb-4 flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-bold text-black">Actividad y avisos</h3>
+                  <p className="text-sm text-gray-500">Lo más importante que tienes pendiente ahora mismo.</p>
+                </div>
+                <div className="rounded-full bg-black px-3 py-1 text-xs font-semibold text-white">
+                  {unreadNotificationsCount} nuevas
+                </div>
+              </div>
+
+              <div className="grid gap-3 md:grid-cols-3">
+                {notifications.slice(0, 3).map((item) => (
+                  <button
+                    key={item.id}
+                    onClick={() => handleNotificationClick(item)}
+                    className="rounded-2xl border border-gray-200 bg-gray-50 p-4 text-left transition-all hover:scale-[1.01]"
+                  >
+                    <p className="text-sm font-bold text-black">{item.title}</p>
+                    <p className="mt-2 text-sm leading-5 text-gray-600">{item.message}</p>
+                    <p className="mt-3 text-xs text-gray-400">{formatDate(item.createdAt)}</p>
+                  </button>
+                ))}
+                {notifications.length === 0 && (
+                  <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 p-4 text-sm text-gray-500 md:col-span-3">
+                    De momento no tienes nada urgente. Buena señal.
+                  </div>
+                )}
+              </div>
+            </div>
+
             <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
               <div className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
                 <div className="mb-3 flex items-center justify-between">
@@ -1883,6 +2331,15 @@ export default function Home() {
                                 className="rounded-xl bg-emerald-600 px-4 py-3 text-white transition-all hover:scale-105 active:scale-95"
                               >
                                 Saldar deuda
+                              </button>
+                            )}
+
+                            {balance > 0 && (
+                              <button
+                                onClick={() => handleClaimFriendPayment(friend.id, balance)}
+                                className="rounded-xl bg-amber-500 px-4 py-3 text-white transition-all hover:scale-105 active:scale-95"
+                              >
+                                Reclamar pago
                               </button>
                             )}
 
@@ -2188,6 +2645,11 @@ export default function Home() {
                                       <span className="rounded-full bg-red-100 px-3 py-1 text-sm font-bold text-red-700">
                                         {item.amount.toFixed(2)}€
                                       </span>
+                                      {currentAppUser?.id === item.creditorId && (
+                                        <button onClick={() => handleClaimGroupPayment(item)} className="rounded-xl bg-amber-500 px-4 py-3 text-white">
+                                          Reclamar
+                                        </button>
+                                      )}
                                       <button onClick={() => settleBalance(item)} className="rounded-xl bg-black px-4 py-3 text-white">Saldar</button>
                                     </div>
                                   </div>
