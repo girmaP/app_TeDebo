@@ -607,13 +607,18 @@ export default function Home() {
     ctaLabel?: string
     ctaScreen?: Screen
   }) => {
-    await supabase.from("notifications").insert({
+    const { error } = await supabase.from("notifications").insert({
       user_id: userId,
       title,
       message,
       type,
       read: false,
     })
+
+    if (error) {
+      console.error("Error creando notificación:", error)
+      return false
+    }
 
     if (currentAppUser?.id === userId) {
       setDbNotifications((prev) => [
@@ -629,6 +634,8 @@ export default function Home() {
         ...prev,
       ])
     }
+
+    return true
   }
 
   const loadNotifications = async () => {
@@ -669,6 +676,27 @@ export default function Home() {
     loadNotifications()
   }, [currentAppUser?.id])
 
+  useEffect(() => {
+    if (!currentAppUser?.id) return
+
+    const interval = setInterval(() => {
+      loadNotifications()
+    }, 4000)
+
+    const handleFocusReload = () => {
+      loadNotifications()
+    }
+
+    window.addEventListener("focus", handleFocusReload)
+    document.addEventListener("visibilitychange", handleFocusReload)
+
+    return () => {
+      clearInterval(interval)
+      window.removeEventListener("focus", handleFocusReload)
+      document.removeEventListener("visibilitychange", handleFocusReload)
+    }
+  }, [currentAppUser?.id])
+
   const pushManualNotification = (item: NotificationItem) => {
     setManualNotifications((prev) => [item, ...prev].slice(0, 25))
   }
@@ -707,6 +735,40 @@ export default function Home() {
 
     if (item.ctaScreen) setScreen(item.ctaScreen)
     setNotificationsOpen(false)
+  }
+
+  const deleteNotification = async (notificationId: string) => {
+    const isDbNotification = dbNotifications.some((item) => item.id === notificationId)
+
+    if (isDbNotification) {
+      const { error } = await supabase.from("notifications").delete().eq("id", notificationId)
+      if (error) {
+        alert("No se pudo borrar la notificación")
+        return
+      }
+      setDbNotifications((prev) => prev.filter((item) => item.id !== notificationId))
+    } else {
+      setManualNotifications((prev) => prev.filter((item) => item.id !== notificationId))
+    }
+
+    setNotificationReadIds((prev) => prev.filter((id) => id !== notificationId))
+    showToast("Notificación eliminada 🗑️")
+  }
+
+  const deleteAllNotifications = async () => {
+    if (dbNotifications.length > 0) {
+      const ids = dbNotifications.map((item) => item.id)
+      const { error } = await supabase.from("notifications").delete().in("id", ids)
+      if (error) {
+        alert("No se pudieron borrar todas las notificaciones")
+        return
+      }
+    }
+
+    setDbNotifications([])
+    setManualNotifications([])
+    setNotificationReadIds([])
+    showToast("Todas las notificaciones eliminadas 🗑️")
   }
 
   const addUser = async () => {
@@ -1525,8 +1587,18 @@ export default function Home() {
 
     if (pendingRequest?.notificationId) {
       await supabase.from("notifications").delete().eq("id", pendingRequest.notificationId)
-      await loadNotifications()
     }
+
+    await createNotification({
+      userId: item.debtorId,
+      title: "Pago de grupo confirmado ✅",
+      message: `${getUserName(item.creditorId)} ha aceptado el pago de ${item.amount.toFixed(2)}€ del grupo ${getGroupName(item.groupId)} y la deuda ya quedó saldada.`,
+      type: "debt",
+      ctaLabel: "Ver historial",
+      ctaScreen: "historial",
+    })
+
+    await loadNotifications()
 
     showToast("Deuda saldada 👌")
     triggerActionFlash("✅", "Cobro confirmado")
@@ -1535,15 +1607,15 @@ export default function Home() {
   }
 
 
-  const requestFriendSettlement = async (friendId: string, rawAmount: number) => {
+  const requestFriendSettlementConfirmation = async (friendId: string, rawAmount: number) => {
     if (!user || !currentAppUser) return
 
     const settleAmount = Math.abs(Number(rawAmount.toFixed(2)))
     if (settleAmount <= 0) return
 
-    await createNotification({
+    const created = await createNotification({
       userId: friendId,
-      title: "Solicitud de confirmación de pago",
+      title: "Te piden confirmar un pago 🧾",
       message: buildSettlementRequestMessage({
         scope: "friend",
         debtorId: currentAppUser.id,
@@ -1555,7 +1627,7 @@ export default function Home() {
       ctaScreen: "amigos",
     })
 
-    showToast("Solicitud enviada. Ahora quien cobra debe confirmar el pago.")
+    showToast(created ? "Solicitud enviada al otro usuario." : "No se pudo enviar la solicitud al otro usuario.")
     triggerActionFlash("🧾", "Confirmación solicitada")
     await loadNotifications()
   }
@@ -1607,6 +1679,16 @@ export default function Home() {
     ])
 
     await supabase.from("notifications").delete().eq("id", request.notificationId)
+
+    await createNotification({
+      userId: request.debtorId,
+      title: "Pago confirmado ✅",
+      message: `${getUserName(request.creditorId)} ha aceptado el pago de ${request.amount.toFixed(2)}€ y la deuda ya quedó saldada.`,
+      type: "debt",
+      ctaLabel: "Ver historial",
+      ctaScreen: "historial",
+    })
+
     await loadNotifications()
 
     showToast("Pago entre colegas confirmado 👌")
@@ -1615,12 +1697,12 @@ export default function Home() {
     await getExpenseSplits()
   }
 
-  const requestGroupSettlement = async (item: BalanceItem) => {
+  const requestGroupSettlementConfirmation = async (item: BalanceItem) => {
     if (!currentAppUser) return
 
-    await createNotification({
+    const created = await createNotification({
       userId: item.creditorId,
-      title: "Solicitud de confirmación de pago",
+      title: "Te piden confirmar un pago de grupo 🧾",
       message: buildSettlementRequestMessage({
         scope: "group",
         debtorId: item.debtorId,
@@ -1633,7 +1715,7 @@ export default function Home() {
       ctaScreen: "balances",
     })
 
-    showToast("Solicitud enviada. Ahora quien cobra debe confirmar el pago.")
+    showToast(created ? "Solicitud enviada al otro usuario." : "No se pudo enviar la solicitud al otro usuario.")
     triggerActionFlash("🧾", "Confirmación solicitada")
     await loadNotifications()
   }
@@ -2054,27 +2136,23 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
     const message = `Ey ${friendName}, me debes ${amountValue.toFixed(2)}€ en TeDebo 😏 ¿Me lo pasas cuando puedas?`
     const copied = await copyText(message)
 
-    pushManualNotification({
-      id: `manual-friend-${friendId}-${Date.now()}`,
-      title: "Recordatorio preparado",
-      message: `Has reclamado ${amountValue.toFixed(2)}€ a ${friendName}. ${copied ? "Se copió el mensaje." : "Copia el texto manualmente."}`,
-      createdAt: new Date().toISOString(),
-      type: "reminder",
-      ctaLabel: "Ver amigos",
-      ctaScreen: "amigos",
-    })
-
-    await createNotification({
+    const created = await createNotification({
       userId: friendId,
       title: "Te reclaman dinero 💸",
-      message: `${currentAppUser?.name || "Un colega"} te ha recordado que debes ${amountValue.toFixed(2)}€.`,
+      message: `${currentAppUser?.name || "Un colega"} te está reclamando ${amountValue.toFixed(2)}€ en TeDebo.`,
       type: "reminder",
       ctaLabel: "Ver amigos",
       ctaScreen: "amigos",
     })
 
-    showToast(copied ? "Recordatorio copiado 💸" : message)
-    triggerActionFlash("📣", "Reclamo listo")
+    showToast(
+      created
+        ? copied
+          ? "Reclamo enviado al otro usuario y mensaje copiado 💸"
+          : "Reclamo enviado al otro usuario"
+        : "No se pudo enviar la notificación al otro usuario"
+    )
+    triggerActionFlash("📣", "Reclamo enviado")
   }
 
   const handleClaimGroupPayment = async (item: BalanceItem) => {
@@ -2089,27 +2167,23 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
 
     const copied = await copyText(message)
 
-    pushManualNotification({
-      id: `manual-group-${item.groupId}-${item.debtorId}-${Date.now()}`,
-      title: "Recordatorio de grupo preparado",
-      message: `${debtorName} tiene pendiente ${item.amount.toFixed(2)}€ en ${groupName}. ${copied ? "Se copió el mensaje." : "Cópialo manualmente."}`,
-      createdAt: new Date().toISOString(),
-      type: "reminder",
-      ctaLabel: "Ver balances",
-      ctaScreen: "balances",
-    })
-
-    await createNotification({
+    const created = await createNotification({
       userId: item.debtorId,
       title: "Te reclaman un pago de grupo 💸",
-      message: `${creditorName} te ha reclamado ${item.amount.toFixed(2)}€ del grupo ${groupName}.`,
+      message: `${creditorName} te está reclamando ${item.amount.toFixed(2)}€ del grupo ${groupName}.`,
       type: "reminder",
       ctaLabel: "Ver balances",
       ctaScreen: "balances",
     })
 
-    showToast(copied ? "Reclamo copiado 📲" : message)
-    triggerActionFlash("📲", "Reclamo preparado")
+    showToast(
+      created
+        ? copied
+          ? "Reclamo de grupo enviado y mensaje copiado 📲"
+          : "Reclamo de grupo enviado al otro usuario"
+        : "No se pudo enviar la notificación al otro usuario"
+    )
+    triggerActionFlash("📲", "Reclamo enviado")
   }
 
   const openFriendExpense = (friendId: string) => {
@@ -2226,7 +2300,7 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
             setMenuOpen(false)
             setNotificationsOpen(false)
           }}
-          className="fixed inset-0 z-[60] bg-black/10 sm:bg-black/5"
+          className="fixed inset-0 z-[40] bg-black/10 sm:bg-black/5"
         />
       )}
       {actionFlash && (
@@ -2657,10 +2731,10 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
 
                             {balance < 0 && (
                               <button
-                                onClick={() => requestFriendSettlement(friend.id, balance)}
+                                onClick={() => requestFriendSettlementConfirmation(friend.id, balance)}
                                 className="rounded-xl bg-emerald-600 px-4 py-3 text-white transition-all hover:scale-105 active:scale-95"
                               >
-                                Solicitar confirmación
+                                Pedir confirmación de deuda saldada
                               </button>
                             )}
 
@@ -2688,7 +2762,7 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
                                     }}
                                     className="rounded-xl bg-sky-600 px-4 py-3 text-white transition-all hover:scale-105 active:scale-95"
                                   >
-                                    Confirmar pago
+                                    Aceptar pago y saldar deuda
                                   </button>
                                 )}
                               </>
@@ -2706,6 +2780,22 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
                             style={{ width: `${Math.min(Math.max(Math.abs(balance) * 2, 12), 100)}%` }}
                           />
                         </div>
+
+                        {balance < 0 && (
+                          <div className="mt-3 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800">
+                            Si ya has pagado a {friend.name}, pulsa <span className="font-semibold">“Pedir confirmación de deuda saldada”</span>.
+                          </div>
+                        )}
+
+                        {balance > 0 &&
+                          friendSettlementRequests.some(
+                            (request) =>
+                              request.debtorId === friend.id && request.creditorId === currentAppUser?.id
+                          ) && (
+                            <div className="mt-3 rounded-xl bg-sky-50 p-3 text-sm text-sky-800">
+                              {friend.name} te ha pedido confirmar que ya te pagó. Pulsa <span className="font-semibold">“Aceptar pago y saldar deuda”</span> para quitar la deuda.
+                            </div>
+                          )}
                       </div>
                     )
                   })
@@ -3002,7 +3092,7 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
                                         </button>
                                       )}
                                       {currentAppUser?.id === item.debtorId && !isAdmin ? (
-                                        <button onClick={() => requestGroupSettlement(item)} className="rounded-xl bg-emerald-600 px-4 py-3 text-white">
+                                        <button onClick={() => requestGroupSettlementConfirmation(item)} className="rounded-xl bg-emerald-600 px-4 py-3 text-white">
                                           Solicitar confirmación
                                         </button>
                                       ) : (
@@ -3013,7 +3103,7 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
                                               request.debtorId === item.debtorId &&
                                               request.creditorId === item.creditorId
                                           )
-                                            ? "Confirmar cobro"
+                                            ? "Aceptar pago y saldar deuda"
                                             : "Saldar"}
                                         </button>
                                       )}
@@ -3026,6 +3116,24 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
                                       style={{ width: `${maxAmount > 0 ? Math.max((item.amount / maxAmount) * 100, 12) : 12}%` }}
                                     />
                                   </div>
+
+                                  {currentAppUser?.id === item.debtorId && !isAdmin && (
+                                    <div className="mt-3 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800">
+                                      Si ya has pagado esta deuda, pulsa <span className="font-semibold">“Pedir confirmación de deuda saldada”</span>.
+                                    </div>
+                                  )}
+
+                                  {groupSettlementRequests.some(
+                                    (request) =>
+                                      request.groupId === item.groupId &&
+                                      request.debtorId === item.debtorId &&
+                                      request.creditorId === item.creditorId
+                                  ) &&
+                                    currentAppUser?.id === item.creditorId && (
+                                      <div className="mt-3 rounded-xl bg-sky-50 p-3 text-sm text-sky-800">
+                                        {getUserName(item.debtorId)} te ha pedido confirmar este pago. Pulsa <span className="font-semibold">“Aceptar pago y saldar deuda”</span>.
+                                      </div>
+                                    )}
                                 </div>
                               ))
                             )}
