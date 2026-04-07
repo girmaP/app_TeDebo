@@ -843,7 +843,14 @@ export default function Home() {
     setNotificationsOpen(false)
   }
 
-  const deleteNotification = async (notificationId: string) => {
+  const deleteNotification = async (
+    notificationId: string,
+    event?: React.MouseEvent<HTMLButtonElement>
+  ) => {
+    event?.stopPropagation()
+
+    setDismissedNotificationIds((prev) => Array.from(new Set([...prev, notificationId])))
+
     const isDbNotification = dbNotifications.some((item) => item.id === notificationId)
     const isManualNotification = manualNotifications.some((item) => item.id === notificationId)
 
@@ -851,35 +858,46 @@ export default function Home() {
       const { error } = await supabase.from("notifications").delete().eq("id", notificationId)
       if (error) {
         alert("No se pudo borrar la notificación")
+        setDismissedNotificationIds((prev) => prev.filter((id) => id !== notificationId))
         return
       }
       setDbNotifications((prev) => prev.filter((item) => item.id !== notificationId))
     } else if (isManualNotification) {
       setManualNotifications((prev) => prev.filter((item) => item.id !== notificationId))
-    } else {
-      setDismissedNotificationIds((prev) => Array.from(new Set([...prev, notificationId])))
     }
 
     showToast("Notificación eliminada 🗑️")
   }
 
   const deleteAllNotifications = async () => {
-    const currentIds = notifications.map((item) => item.id)
+    const currentIds = visibleNotifications.map((item) => item.id)
 
-    if (dbNotifications.length > 0) {
-      const ids = dbNotifications.map((item) => item.id)
-      const { error } = await supabase.from("notifications").delete().in("id", ids)
-      if (error) {
-        alert("No se pudieron borrar todas las notificaciones")
-        return
-      }
+    if (currentIds.length === 0) {
+      showToast("No hay notificaciones que borrar")
+      return
     }
 
-    setDbNotifications([])
-    setManualNotifications([])
     setDismissedNotificationIds((prev) =>
       Array.from(new Set([...prev, ...currentIds]))
     )
+
+    if (dbNotifications.length > 0) {
+      const ids = dbNotifications
+        .map((item) => item.id)
+        .filter((id) => currentIds.includes(id))
+
+      if (ids.length > 0) {
+        const { error } = await supabase.from("notifications").delete().in("id", ids)
+        if (error) {
+          alert("No se pudieron borrar todas las notificaciones")
+          setDismissedNotificationIds((prev) => prev.filter((id) => !currentIds.includes(id)))
+          return
+        }
+      }
+    }
+
+    setDbNotifications((prev) => prev.filter((item) => !currentIds.includes(item.id)))
+    setManualNotifications((prev) => prev.filter((item) => !currentIds.includes(item.id)))
 
     showToast("Todas las notificaciones eliminadas 🗑️")
   }
@@ -2101,8 +2119,8 @@ export default function Home() {
   }, [notifications, notificationReadIds])
 
   const visibleNotifications = useMemo(() => {
-    return notifications
-  }, [notifications])
+    return notifications.filter((item) => !dismissedNotificationIds.includes(item.id))
+  }, [notifications, dismissedNotificationIds])
 
 const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense.title !== "Saldar deuda"), [visibleExpenses])
   const settledExpenses = useMemo(() => visibleExpenses.filter((expense) => expense.title === "Saldar deuda"), [visibleExpenses])
@@ -2586,7 +2604,7 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
                               </button>
 
                               <button
-                                onClick={() => deleteNotification(item.id)}
+                                onClick={(event) => deleteNotification(item.id, event)}
                                 className="shrink-0 rounded-full bg-red-50 px-3 py-2 text-xs font-semibold text-red-700"
                                 aria-label="Borrar notificación"
                                 title="Borrar notificación"
