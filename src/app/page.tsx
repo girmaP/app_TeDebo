@@ -246,6 +246,7 @@ export default function Home() {
   const [notificationReadIds, setNotificationReadIds] = useState<string[]>([])
   const [manualNotifications, setManualNotifications] = useState<NotificationItem[]>([])
   const [dbNotifications, setDbNotifications] = useState<NotificationItem[]>([])
+  const [dismissedNotificationIds, setDismissedNotificationIds] = useState<string[]>([])
 
   const [showGuide, setShowGuide] = useState(true)
   const [showGamesMenu, setShowGamesMenu] = useState(false)
@@ -681,19 +682,45 @@ export default function Home() {
 
     const interval = setInterval(() => {
       loadNotifications()
+      getExpenses()
+      getExpenseSplits()
+      getReceivedInvitations()
+      getSentInvitations()
     }, 4000)
 
     const handleFocusReload = () => {
       loadNotifications()
+      getExpenses()
+      getExpenseSplits()
+      getReceivedInvitations()
+      getSentInvitations()
     }
 
     window.addEventListener("focus", handleFocusReload)
     document.addEventListener("visibilitychange", handleFocusReload)
 
+    const realtimeChannel = supabase
+      .channel(`tedebo-live-${currentAppUser.id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "expenses" }, () => {
+        getExpenses()
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "expense_splits" }, () => {
+        getExpenseSplits()
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "notifications" }, () => {
+        loadNotifications()
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "friend_invitations" }, () => {
+        getReceivedInvitations()
+        getSentInvitations()
+      })
+      .subscribe()
+
     return () => {
       clearInterval(interval)
       window.removeEventListener("focus", handleFocusReload)
       document.removeEventListener("visibilitychange", handleFocusReload)
+      supabase.removeChannel(realtimeChannel)
     }
   }, [currentAppUser?.id])
 
@@ -723,6 +750,8 @@ export default function Home() {
       await supabase.from("notifications").update({ read: true }).in("id", dbIds)
       await loadNotifications()
     }
+
+    showToast("Notificaciones marcadas como leídas ✅")
   }
 
   const handleNotificationClick = async (item: NotificationItem) => {
@@ -739,6 +768,7 @@ export default function Home() {
 
   const deleteNotification = async (notificationId: string) => {
     const isDbNotification = dbNotifications.some((item) => item.id === notificationId)
+    const isManualNotification = manualNotifications.some((item) => item.id === notificationId)
 
     if (isDbNotification) {
       const { error } = await supabase.from("notifications").delete().eq("id", notificationId)
@@ -747,8 +777,10 @@ export default function Home() {
         return
       }
       setDbNotifications((prev) => prev.filter((item) => item.id !== notificationId))
-    } else {
+    } else if (isManualNotification) {
       setManualNotifications((prev) => prev.filter((item) => item.id !== notificationId))
+    } else {
+      setDismissedNotificationIds((prev) => Array.from(new Set([...prev, notificationId])))
     }
 
     setNotificationReadIds((prev) => prev.filter((id) => id !== notificationId))
@@ -767,6 +799,9 @@ export default function Home() {
 
     setDbNotifications([])
     setManualNotifications([])
+    setDismissedNotificationIds((prev) =>
+      Array.from(new Set([...prev, ...notifications.map((item) => item.id)]))
+    )
     setNotificationReadIds([])
     showToast("Todas las notificaciones eliminadas 🗑️")
   }
@@ -1857,9 +1892,9 @@ export default function Home() {
   
   const notifications = useMemo(() => {
     if (!currentAppUser || !user) {
-      return [...manualNotifications].sort(
-        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-      )
+      return [...manualNotifications]
+        .filter((item) => !dismissedNotificationIds.includes(item.id))
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
     }
 
     const autoNotifications: NotificationItem[] = []
@@ -1955,6 +1990,10 @@ export default function Home() {
 
   const unreadNotificationsCount = useMemo(() => {
     return notifications.filter((item) => !notificationReadIds.includes(item.id)).length
+  }, [notifications, notificationReadIds])
+
+  const visibleNotifications = useMemo(() => {
+    return notifications.filter((item) => !notificationReadIds.includes(item.id))
   }, [notifications, notificationReadIds])
 
 const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense.title !== "Saldar deuda"), [visibleExpenses])
@@ -2380,21 +2419,29 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
                       <p className="text-sm font-black text-black">Notificaciones</p>
                       <p className="text-xs text-gray-500">Invites, gastos y recordatorios.</p>
                     </div>
-                    <button
-                      onClick={() => markAllNotificationsAsRead(notifications)}
-                      className="rounded-lg bg-gray-100 px-3 py-2 text-xs font-semibold text-black"
-                    >
-                      Marcar todo
-                    </button>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => markAllNotificationsAsRead(visibleNotifications)}
+                        className="rounded-lg bg-gray-100 px-3 py-2 text-xs font-semibold text-black"
+                      >
+                        Marcar todo
+                      </button>
+                      <button
+                        onClick={deleteAllNotifications}
+                        className="rounded-lg bg-red-50 px-3 py-2 text-xs font-semibold text-red-700"
+                      >
+                        Borrar todas
+                      </button>
+                    </div>
                   </div>
 
                   <div className="max-h-[420px] space-y-2 overflow-y-auto pr-1">
-                    {notifications.length === 0 ? (
+                    {visibleNotifications.length === 0 ? (
                       <div className="rounded-xl bg-gray-50 p-4 text-sm text-gray-500">
                         No tienes notificaciones por ahora.
                       </div>
                     ) : (
-                      notifications.map((item) => {
+                      visibleNotifications.map((item) => {
                         const unread = !notificationReadIds.includes(item.id)
                         return (
                           <button
