@@ -815,31 +815,6 @@ export default function Home() {
     return false
   }
 
-
-  const shareInviteLink = async () => {
-    const appUrl =
-      typeof window !== "undefined"
-        ? window.location.origin
-        : "https://app-te-debo.vercel.app"
-
-    const inviteText = `${currentAppUser?.name || "Un colega"} te invita a TeDebo 💸\n\nÚnete aquí: ${appUrl}\n\nSi además te mandé invitación por correo, entra o regístrate con ese mismo email.`
-
-    try {
-      if (navigator.share) {
-        await navigator.share({
-          title: "Únete a TeDebo",
-          text: inviteText,
-          url: appUrl,
-        })
-        showToast("Link de invitación compartido 🚀")
-        return
-      }
-    } catch {}
-
-    const copied = await copyText(inviteText)
-    showToast(copied ? "Link de invitación copiado 🔗" : "No se pudo copiar el link")
-  }
-
   const markAllNotificationsAsRead = async (items: NotificationItem[]) => {
     const ids = items.map((item) => item.id)
     setNotificationReadIds((prev) => Array.from(new Set([...prev, ...ids])))
@@ -2812,6 +2787,44 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
                     </button>
                   </div>
                   <p className="mt-3 text-xs text-white/80">Importante: tu colega debe registrarse o iniciar sesión con ese mismo correo.</p>
+
+                  <div className="mt-4 rounded-2xl border border-white/15 bg-black/10 p-4 backdrop-blur-sm">
+                    <p className="text-sm font-semibold text-white">O invítalo por link</p>
+                    <p className="mt-1 text-xs text-white/80">
+                      Ideal para copiar y pasar por WhatsApp, Telegram o donde quieras.
+                    </p>
+
+                    <div className="mt-3 flex flex-col gap-3 sm:flex-row">
+                      <input
+                        value={typeof window !== "undefined" ? window.location.origin : ""}
+                        readOnly
+                        className="w-full rounded-xl border border-white/20 bg-white/90 p-3 text-sm text-black outline-none"
+                      />
+
+                      <button
+                        onClick={async () => {
+                          const link = window.location.origin
+
+                          if (navigator.share) {
+                            try {
+                              await navigator.share({
+                                title: "Únete a TeDebo 💸",
+                                text: "Únete a TeDebo para gestionar gastos entre amigos",
+                                url: link,
+                              })
+                              return
+                            } catch {}
+                          }
+
+                          await navigator.clipboard.writeText(link)
+                          showToast("Link copiado 📋")
+                        }}
+                        className="rounded-xl bg-white px-4 py-3 font-semibold text-black transition-all hover:scale-105 active:scale-95"
+                      >
+                        Copiar / compartir link
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -3047,24 +3060,6 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
                     )
                   })
                 )}
-              </div>
-            </div>
-
-            <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <h3 className="text-xl font-semibold text-black">Invitar por link</h3>
-                  <p className="mt-1 text-sm text-gray-500">
-                    Comparte un acceso rápido a TeDebo. Si además mandaste invitación por correo, esa persona debe entrar con ese mismo email.
-                  </p>
-                </div>
-
-                <button
-                  onClick={shareInviteLink}
-                  className="rounded-xl bg-black px-4 py-3 text-white transition-all hover:scale-105 active:scale-95"
-                >
-                  Copiar / compartir link
-                </button>
               </div>
             </div>
 
