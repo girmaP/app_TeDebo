@@ -3414,18 +3414,17 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
                                 <p className="mt-2 text-xs text-gray-500">{formatDate(e.created_at)}</p>
                               </div>
                             </div>
-                            <div className="flex shrink-0 items-center gap-2 self-start sm:self-auto">
+                            <div className="flex flex-col items-start gap-2 self-start sm:self-auto">
                               <div className="rounded-full bg-white px-3 py-1 text-sm font-semibold text-black shadow-sm">
                                 {e.group_id ? "Grupo" : "Individual"}
                               </div>
+
                               {isAdmin && (
                                 <button
                                   onClick={() => deleteExpense(e.id)}
-                                  className="flex h-8 w-8 items-center justify-center rounded-full bg-red-500 text-sm font-bold text-white shadow"
-                                  aria-label="Borrar gasto"
-                                  title="Borrar gasto"
+                                  className="rounded-lg bg-red-500 px-3 py-1 text-xs font-semibold text-white shadow active:scale-95"
                                 >
-                                  ✕
+                                  Borrar
                                 </button>
                               )}
                             </div>
@@ -3483,16 +3482,15 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
                                 <p className="mt-2 text-xs text-gray-500">{formatDate(e.created_at)}</p>
                               </div>
                             </div>
-                            <div className="flex shrink-0 items-center gap-2 self-start sm:self-auto">
+                            <div className="flex flex-col items-start gap-2 self-start sm:self-auto">
                             <div className="rounded-full bg-white px-3 py-1 text-sm font-semibold text-green-700 shadow-sm">Saldado</div>
+
                             {isAdmin && (
                               <button
                                 onClick={() => deleteExpense(e.id)}
-                                className="flex h-8 w-8 items-center justify-center rounded-full bg-red-500 text-sm font-bold text-white shadow"
-                                aria-label="Borrar gasto"
-                                title="Borrar gasto"
+                                className="rounded-lg bg-red-500 px-3 py-1 text-xs font-semibold text-white shadow active:scale-95"
                               >
-                                ✕
+                                Borrar
                               </button>
                             )}
                           </div>
