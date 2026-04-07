@@ -2300,7 +2300,7 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
             setMenuOpen(false)
             setNotificationsOpen(false)
           }}
-          className="fixed inset-0 z-[40] bg-black/10 sm:bg-black/5"
+          className="fixed inset-0 z-[60] bg-black/10 sm:bg-black/5"
         />
       )}
       {actionFlash && (
