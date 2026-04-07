@@ -2737,7 +2737,7 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
 
                 <div className="w-full max-w-xl rounded-2xl bg-white/10 p-4 backdrop-blur-md">
                   <label className="mb-2 block text-sm font-semibold text-white">Correo de tu colega</label>
-                  <div className="flex flex-col gap-3 sm:flex-row">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
                     <input
                       placeholder="colega@correo.com"
                       value={name}
@@ -2792,7 +2792,7 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
                     <p className="text-sm text-gray-500">Juega en pantalla completa y métele presión al drama financiero.</p>
                   </div>
 
-                  <button onClick={() => setShowGamesMenu((prev) => !prev)} className="rounded-xl bg-black px-4 py-3 text-white transition-all hover:scale-105 active:scale-95">
+                  <button onClick={() => setShowGamesMenu((prev) => !prev)} className="w-full rounded-xl bg-black px-4 py-3 text-white transition-all hover:scale-105 active:scale-95 sm:w-auto">
                     {showGamesMenu ? "Ocultar" : "Más minijuegos"}
                   </button>
                 </div>
@@ -3455,7 +3455,7 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
               ) : (
                 <div className="grid gap-4 lg:grid-cols-[1fr_0.9fr]">
                   <div className="rounded-2xl bg-gradient-to-br from-red-500 to-black p-4 text-white shadow-xl">
-                    <div className="flex items-center gap-4">
+                    <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center">
                       {renderAvatar(moroso.friendId, getUserName(moroso.friendId), "h-16 w-16", "text-lg")}
                       <div>
                         <div className="text-3xl">💀</div>
@@ -3502,10 +3502,10 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
           <div className="mx-auto flex max-w-5xl animate-[fadeIn_.35s_ease] flex-col gap-4">
             <div className="overflow-hidden rounded-3xl border border-gray-200 bg-gradient-to-br from-black via-zinc-900 to-slate-800 p-4 text-white shadow-2xl">
               <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                <div className="flex items-center gap-4">
-                  {renderAvatar(currentAppUser?.id, currentAppUser?.name, "h-24 w-24", "text-2xl", "ring-4 ring-white/15")}
+                <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center">
+                  {renderAvatar(currentAppUser?.id, currentAppUser?.name, "h-20 w-20 sm:h-24 sm:w-24", "text-2xl", "ring-4 ring-white/15")}
                   <div>
-                    <p className="text-3xl font-black">{currentAppUser?.name || "Usuario"}</p>
+                    <p className="text-2xl font-black sm:text-3xl">{currentAppUser?.name || "Usuario"}</p>
                     <p className="mt-1 text-sm text-white/70">{user?.email || currentAppUser?.email || "Sin correo"}</p>
                     <div className="mt-3 flex flex-wrap gap-2">
                       <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white backdrop-blur">
@@ -3552,10 +3552,13 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
                 <p className="mt-1 text-sm text-gray-500">
                   Cambia tu nombre visible y tu avatar. La foto se verá también por amigos, balances e historial.
                 </p>
+                <div className="mt-3 rounded-2xl bg-emerald-50 p-3 text-sm text-emerald-800">
+                  Consejo: si subes una foto cuadrada se verá mejor en móvil y en las tarjetas de amigos.
+                </div>
 
                 <div className="mt-5 grid gap-5 lg:grid-cols-[180px_1fr]">
-                  <div className="flex flex-col items-center gap-4 rounded-2xl bg-gray-50 p-5">
-                    <div className="grid h-28 w-28 place-items-center overflow-hidden rounded-full bg-black text-3xl font-black text-white shadow-lg">
+                  <div className="flex flex-col items-center gap-4 rounded-2xl bg-gray-50 p-4 sm:p-5">
+                    <div className="grid h-24 w-24 sm:h-28 sm:w-28 place-items-center overflow-hidden rounded-full bg-black text-3xl font-black text-white shadow-lg">
                       {profileAvatarUrl ? (
                         <img src={profileAvatarUrl} alt="Avatar" className="h-full w-full object-cover" />
                       ) : (
@@ -3570,18 +3573,18 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
                       value={profileName}
                       onChange={(e) => setProfileName(e.target.value)}
                       placeholder="Tu nombre"
-                      className="w-full rounded-xl border border-gray-300 p-3 text-black outline-none"
+                      className="w-full rounded-xl border border-gray-300 p-3 text-sm text-black outline-none sm:text-base"
                     />
 
                     <input
                       value={profileAvatarUrl}
                       onChange={(e) => setProfileAvatarUrl(e.target.value)}
                       placeholder="URL de la foto (opcional)"
-                      className="w-full rounded-xl border border-gray-300 p-3 text-black outline-none"
+                      className="w-full rounded-xl border border-gray-300 p-3 text-sm text-black outline-none sm:text-base"
                     />
 
-                    <div className="flex flex-col gap-3 sm:flex-row">
-                      <label className="cursor-pointer rounded-xl bg-black px-5 py-3 font-semibold text-white transition-all hover:scale-105 active:scale-95 text-center">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+                      <label className="w-full cursor-pointer rounded-xl bg-black px-5 py-3 text-center font-semibold text-white transition-all hover:scale-105 active:scale-95 sm:w-auto">
                         {avatarUploading ? "Subiendo..." : "Subir foto"}
                         <input
                           type="file"
@@ -3597,18 +3600,18 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
                       {profileAvatarUrl && (
                         <button
                           onClick={() => setProfileAvatarUrl("")}
-                          className="rounded-xl border border-gray-300 bg-white px-5 py-3 font-semibold text-black transition-all hover:scale-105 active:scale-95"
+                          className="w-full rounded-xl border border-gray-300 bg-white px-5 py-3 font-semibold text-black transition-all hover:scale-105 active:scale-95 sm:w-auto"
                         >
                           Quitar foto
                         </button>
                       )}
                     </div>
 
-                    <div className="flex flex-col gap-3 sm:flex-row">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
                       <button
                         onClick={saveProfile}
                         disabled={profileSaving || avatarUploading}
-                        className="rounded-xl bg-emerald-600 px-5 py-3 font-semibold text-white transition-all hover:scale-105 active:scale-95 disabled:opacity-60"
+                        className="w-full rounded-xl bg-emerald-600 px-5 py-3 font-semibold text-white transition-all hover:scale-105 active:scale-95 disabled:opacity-60 sm:w-auto"
                       >
                         {profileSaving ? "Guardando..." : "Guardar cambios"}
                       </button>
@@ -3619,7 +3622,7 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
                           setProfileAvatarUrl(currentAppUser?.avatar_url || "")
                           setIsEditingProfile(false)
                         }}
-                        className="rounded-xl bg-gray-200 px-5 py-3 font-semibold text-black transition-all hover:scale-105 active:scale-95"
+                        className="w-full rounded-xl bg-gray-200 px-5 py-3 font-semibold text-black transition-all hover:scale-105 active:scale-95 sm:w-auto"
                       >
                         Cancelar
                       </button>
@@ -3647,7 +3650,7 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
                     await supabase.auth.signOut()
                     setUser(null)
                   }}
-                  className="rounded-xl bg-red-500 px-4 py-3 text-white transition-all hover:scale-105 active:scale-95"
+                  className="w-full rounded-xl bg-red-500 px-4 py-3 text-white transition-all hover:scale-105 active:scale-95 sm:w-auto"
                 >
                   Cerrar sesión
                 </button>
