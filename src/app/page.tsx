@@ -3361,6 +3361,139 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
                 )}
               </div>
             </div>
+
+            <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+              <h2 className="text-xl font-semibold text-black">Balances con colegas</h2>
+              <p className="mt-1 text-sm text-gray-500">La misma idea que en grupos, pero para deudas directas entre vosotros.</p>
+
+              <div className="mt-4 flex flex-col gap-4">
+                {friendBalances.length === 0 ? (
+                  <p className="text-gray-500">No hay balances directos con colegas.</p>
+                ) : (
+                  friendBalances.map((friendItem) => {
+                    const friend = friendList.find((item) => item.id === friendItem.friendId)
+                    const absAmount = Math.abs(friendItem.amount)
+                    const maxFriendAmount = friendBalances.length > 0 ? Math.max(...friendBalances.map((item) => Math.abs(item.amount))) : 0
+                    const cardId = `friend-${friendItem.friendId}`
+                    const isPositive = friendItem.amount > 0
+                    const debtorId = isPositive ? friendItem.friendId : currentAppUser?.id || ""
+                    const creditorId = isPositive ? currentAppUser?.id || "" : friendItem.friendId
+                    const pendingRequest = friendSettlementRequests.find(
+                      (request) => request.debtorId === debtorId && request.creditorId === creditorId
+                    )
+
+                    return (
+                      <div key={friendItem.friendId} className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+                        <button
+                          onClick={() => toggleBalanceGroup(cardId)}
+                          className="flex w-full items-center justify-between text-left"
+                        >
+                          <div className="flex items-center gap-3">
+                            {renderAvatar(friendItem.friendId, friend?.name, "h-12 w-12", "text-sm")}
+                            <div>
+                              <h3 className="font-bold text-black">{friend?.name || getUserName(friendItem.friendId)}</h3>
+                              <p className={`mt-1 text-sm ${friendItem.amount > 0 ? "text-red-600" : friendItem.amount < 0 ? "text-emerald-700" : "text-gray-500"}`}>
+                                {friendItem.amount > 0
+                                  ? `${getUserName(friendItem.friendId)} te debe ${absAmount.toFixed(2)}€`
+                                  : friendItem.amount < 0
+                                  ? `Debes ${absAmount.toFixed(2)}€ a ${getUserName(friendItem.friendId)}`
+                                  : "Balance a cero"}
+                              </p>
+                            </div>
+                          </div>
+                          <span className="text-black">{openBalanceGroups[cardId] ? "▲" : "▼"}</span>
+                        </button>
+
+                        {openBalanceGroups[cardId] && (
+                          <div className="mt-3 space-y-3">
+                            {absAmount === 0 ? (
+                              <p className="text-sm text-gray-500">No hay deuda directa con este colega.</p>
+                            ) : (
+                              <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+                                <div className="mb-3 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                                  <div className="flex items-center gap-3">
+                                    {renderAvatar(debtorId, getUserName(debtorId), "h-12 w-12", "text-sm")}
+                                    <div>
+                                      <p className="font-semibold text-black">{getUserName(debtorId)}</p>
+                                      <p className="text-sm text-gray-500">
+                                        Debe a {getUserName(creditorId)}
+                                      </p>
+                                      <div className="mt-2 flex items-center gap-2">
+                                        {renderAvatar(creditorId, getUserName(creditorId), "h-7 w-7", "text-[10px]")}
+                                        <span className="text-xs text-gray-500">{getUserName(creditorId)}</span>
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  <div className="flex flex-wrap items-center gap-3">
+                                    <span className="rounded-full bg-red-100 px-3 py-1 text-sm font-bold text-red-700">
+                                      {absAmount.toFixed(2)}€
+                                    </span>
+
+                                    {currentAppUser?.id === creditorId && (
+                                      <button
+                                        onClick={() => handleClaimFriendPayment(friendItem.friendId, absAmount)}
+                                        className="rounded-xl bg-amber-500 px-4 py-3 text-white"
+                                      >
+                                        Reclamar
+                                      </button>
+                                    )}
+
+                                    {currentAppUser?.id === debtorId && !isAdmin && (
+                                      <button
+                                        onClick={() => requestFriendSettlementConfirmation(friendItem.friendId, absAmount)}
+                                        className="rounded-xl bg-emerald-600 px-4 py-3 text-white"
+                                      >
+                                        Solicitar confirmación
+                                      </button>
+                                    )}
+
+                                    {pendingRequest && currentAppUser?.id === creditorId && (
+                                      <button
+                                        onClick={() => confirmFriendSettlement(pendingRequest)}
+                                        className="rounded-xl bg-sky-600 px-4 py-3 text-white"
+                                      >
+                                        Aceptar pago y saldar deuda
+                                      </button>
+                                    )}
+
+                                    <button
+                                      onClick={() => openFriendExpense(friendItem.friendId)}
+                                      className="rounded-xl bg-black px-4 py-3 text-white"
+                                    >
+                                      Añadir gasto directo
+                                    </button>
+                                  </div>
+                                </div>
+
+                                <div className="h-3 w-full overflow-hidden rounded-full bg-gray-100">
+                                  <div
+                                    className={`h-full rounded-full ${friendItem.amount > 0 ? "bg-gradient-to-r from-yellow-400 via-orange-500 to-red-600" : "bg-gradient-to-r from-emerald-400 via-emerald-500 to-green-700"}`}
+                                    style={{ width: `${maxFriendAmount > 0 ? Math.max((absAmount / maxFriendAmount) * 100, 12) : 12}%` }}
+                                  />
+                                </div>
+
+                                {currentAppUser?.id === debtorId && !isAdmin && (
+                                  <div className="mt-3 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800">
+                                    Si ya has pagado a {getUserName(creditorId)}, pulsa <span className="font-semibold">“Solicitar confirmación”</span>.
+                                  </div>
+                                )}
+
+                                {pendingRequest && currentAppUser?.id === creditorId && (
+                                  <div className="mt-3 rounded-xl bg-sky-50 p-3 text-sm text-sky-800">
+                                    {getUserName(debtorId)} te ha pedido confirmar este pago. Pulsa <span className="font-semibold">“Aceptar pago y saldar deuda”</span>.
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })
+                )}
+              </div>
+            </div>
           </div>
         )}
 
