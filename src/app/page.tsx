@@ -2291,7 +2291,7 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
   }
 
   return (
-    <main className="min-h-screen overflow-x-hidden bg-[radial-gradient(circle_at_top,_#f8fafc,_#eef2ff_35%,_#ffffff_70%)] px-4 py-4 sm:px-5 sm:py-5 lg:p-6">
+    <main className="min-h-screen overflow-x-hidden bg-[radial-gradient(circle_at_top,_#f8fafc,_#eef2ff_35%,_#ffffff_70%)] px-3 py-3 sm:px-5 sm:py-5 lg:p-6">
       {toast && <div className="fixed bottom-6 right-6 z-[80] rounded-xl bg-black px-4 py-3 text-white shadow-2xl">{toast}</div>}
       {(menuOpen || notificationsOpen) && (
         <button
@@ -2445,19 +2445,19 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
         </div>
 
         {screen === "home" && (
-          <div className="mx-auto flex max-w-6xl animate-[fadeIn_.35s_ease] flex-col gap-6">
-            <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-zinc-900 via-slate-800 to-black p-5 sm:p-6 lg:p-8 text-white shadow-2xl">
+          <div className="mx-auto flex max-w-6xl animate-[fadeIn_.35s_ease] flex-col gap-5">
+            <div className="relative overflow-hidden rounded-[28px] bg-gradient-to-br from-zinc-900 via-slate-800 to-black p-4 sm:p-6 lg:p-8 text-white shadow-2xl">
               <div className="absolute -top-6 -left-6 h-24 w-24 rounded-full bg-white/10 blur-2xl" />
               <div className="absolute top-10 right-6 h-20 w-20 rounded-full bg-green-400/20 blur-2xl" />
               <div className="absolute bottom-0 left-1/3 h-24 w-24 rounded-full bg-red-400/20 blur-2xl" />
 
               <div className="relative z-10 grid gap-6 lg:grid-cols-[1.1fr_0.9fr] items-center">
                 <div className="flex flex-col gap-4">
-                  <div className="inline-flex w-fit items-center rounded-full border border-white/20 bg-white/10 px-3 py-1 text-sm backdrop-blur">
+                  <div className="inline-flex max-w-full items-center rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs sm:text-sm backdrop-blur">
                     Bienvenido al rincón de las cuentas pendientes
                   </div>
 
-                  <h2 className="text-3xl font-black leading-tight sm:text-4xl lg:text-5xl">
+                  <h2 className="text-[2.15rem] font-black leading-tight sm:text-4xl lg:text-5xl">
                     Si estás aquí,
                     <br />
                     <span className="text-green-300">alguien te debe pasta.</span>
@@ -2467,10 +2467,10 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
                     Grupos, balances visuales, onboarding, ranking mensual y minijuegos para meter presión.
                   </p>
 
-                  <div className="flex flex-wrap gap-3 pt-2">
-                    <div className="rounded-2xl bg-white/10 px-4 py-2 text-sm backdrop-blur">Grupos reales</div>
-                    <div className="rounded-2xl bg-white/10 px-4 py-2 text-sm backdrop-blur">Amigos y balances</div>
-                    <div className="rounded-2xl bg-white/10 px-4 py-2 text-sm backdrop-blur">Historial y morosos</div>
+                  <div className="flex flex-wrap gap-2.5 pt-2">
+                    <div className="rounded-2xl bg-white/10 px-4 py-2 text-sm backdrop-blur max-w-full">Grupos reales</div>
+                    <div className="rounded-2xl bg-white/10 px-4 py-2 text-sm backdrop-blur max-w-full">Amigos y balances</div>
+                    <div className="rounded-2xl bg-white/10 px-4 py-2 text-sm backdrop-blur max-w-full">Historial y morosos</div>
                   </div>
 
                   <div className="grid gap-3 sm:grid-cols-3">
