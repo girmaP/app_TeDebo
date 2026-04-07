@@ -2337,10 +2337,10 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
           </button>
 
           <div className="flex gap-2 flex-wrap items-center">
-            <div className="relative">
+            <div className="relative z-[60]">
               <button onClick={() => setMenuOpen(!menuOpen)} className="px-4 py-2 rounded-xl bg-white border border-gray-200">☰</button>
               {menuOpen && (
-                <div className="fixed left-1/2 top-[120px] -translate-x-1/2 w-[90vw] max-w-[280px] sm:absolute sm:right-0 sm:translate-x-0 sm:w-40 bg-white border rounded-xl shadow-lg z-50">
+                <div className="absolute left-1/2 top-full mt-2 -translate-x-1/2 w-[90vw] max-w-[280px] pointer-events-auto sm:left-auto sm:right-0 sm:top-auto sm:mt-2 sm:translate-x-0 sm:w-40 bg-white border rounded-xl shadow-lg z-50">
                   {menuItems.map((item) => (
                     <button
                       key={item}
@@ -2357,7 +2357,7 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
               )}
             </div>
 
-            <div className="relative">
+            <div className="relative z-[60]">
               <button
                 onClick={() => {
                   setNotificationsOpen((prev) => !prev)
@@ -2374,7 +2374,7 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
               </button>
 
               {notificationsOpen && (
-                <div className="fixed left-1/2 top-[120px] -translate-x-1/2 z-50 w-[92vw] max-w-[320px] sm:absolute sm:right-0 sm:translate-x-0 sm:w-[340px] rounded-2xl border border-gray-200 bg-white p-3 shadow-2xl">
+                <div className="absolute left-1/2 top-full mt-2 -translate-x-1/2 z-50 w-[92vw] max-w-[320px] pointer-events-auto sm:left-auto sm:right-0 sm:top-auto sm:mt-2 sm:translate-x-0 sm:w-[340px] rounded-2xl border border-gray-200 bg-white p-3 shadow-2xl">
                   <div className="mb-3 flex items-center justify-between">
                     <div>
                       <p className="text-sm font-black text-black">Notificaciones</p>
