@@ -681,10 +681,20 @@ export default function Home() {
 
     const interval = setInterval(() => {
       loadNotifications()
+      getExpenses()
+      getExpenseSplits()
+      getReceivedInvitations()
+      getSentInvitations()
+      getFriendships()
     }, 4000)
 
     const handleFocusReload = () => {
       loadNotifications()
+      getExpenses()
+      getExpenseSplits()
+      getReceivedInvitations()
+      getSentInvitations()
+      getFriendships()
     }
 
     window.addEventListener("focus", handleFocusReload)
@@ -712,61 +722,58 @@ export default function Home() {
   }
 
   const markAllNotificationsAsRead = async (items: NotificationItem[]) => {
-    const ids = items.map((item) => item.id)
-    setNotificationReadIds((prev) => Array.from(new Set([...prev, ...ids])))
-
-    const dbIds = ids.filter((id) =>
-      dbNotifications.some((notificationItem) => notificationItem.id === id)
-    )
+    const dbIds = items
+      .map((item) => item.id)
+      .filter((id) => dbNotifications.some((notificationItem) => notificationItem.id === id))
 
     if (dbIds.length > 0) {
-      await supabase.from("notifications").update({ read: true }).in("id", dbIds)
-      await loadNotifications()
+      const { error } = await supabase.from("notifications").update({ read: true }).in("id", dbIds)
+      if (error) {
+        alert("No se pudieron marcar como leídas")
+        return
+      }
     }
+
+    setNotificationReadIds((prev) => Array.from(new Set([...prev, ...dbIds])))
+    setDbNotifications((prev) => prev.filter((item) => !dbIds.includes(item.id)))
+    showToast("Notificaciones leídas ✅")
   }
 
   const handleNotificationClick = async (item: NotificationItem) => {
-    setNotificationReadIds((prev) => Array.from(new Set([...prev, item.id])))
-
     if (dbNotifications.some((notificationItem) => notificationItem.id === item.id)) {
       await supabase.from("notifications").update({ read: true }).eq("id", item.id)
-      await loadNotifications()
+      setDbNotifications((prev) => prev.filter((notificationItem) => notificationItem.id !== item.id))
     }
+
+    setNotificationReadIds((prev) => Array.from(new Set([...prev, item.id])))
 
     if (item.ctaScreen) setScreen(item.ctaScreen)
     setNotificationsOpen(false)
   }
 
   const deleteNotification = async (notificationId: string) => {
-    const isDbNotification = dbNotifications.some((item) => item.id === notificationId)
-
-    if (isDbNotification) {
-      const { error } = await supabase.from("notifications").delete().eq("id", notificationId)
-      if (error) {
-        alert("No se pudo borrar la notificación")
-        return
-      }
-      setDbNotifications((prev) => prev.filter((item) => item.id !== notificationId))
-    } else {
-      setManualNotifications((prev) => prev.filter((item) => item.id !== notificationId))
+    const { error } = await supabase.from("notifications").delete().eq("id", notificationId)
+    if (error) {
+      alert("No se pudo borrar la notificación")
+      return
     }
 
+    setDbNotifications((prev) => prev.filter((item) => item.id !== notificationId))
     setNotificationReadIds((prev) => prev.filter((id) => id !== notificationId))
     showToast("Notificación eliminada 🗑️")
   }
 
   const deleteAllNotifications = async () => {
-    if (dbNotifications.length > 0) {
-      const ids = dbNotifications.map((item) => item.id)
-      const { error } = await supabase.from("notifications").delete().in("id", ids)
-      if (error) {
-        alert("No se pudieron borrar todas las notificaciones")
-        return
-      }
+    if (dbNotifications.length === 0) return
+
+    const ids = dbNotifications.map((item) => item.id)
+    const { error } = await supabase.from("notifications").delete().in("id", ids)
+    if (error) {
+      alert("No se pudieron borrar todas las notificaciones")
+      return
     }
 
     setDbNotifications([])
-    setManualNotifications([])
     setNotificationReadIds([])
     showToast("Todas las notificaciones eliminadas 🗑️")
   }
@@ -1440,26 +1447,36 @@ export default function Home() {
       }))
     }
 
-    await supabase.from("expense_splits").insert(splitsToInsert)
+    const { error: splitsError } = await supabase.from("expense_splits").insert(splitsToInsert)
 
-    for (const participant of participants) {
-      if (participant.id === currentAppUser.id) continue
-
-      await createNotification({
-        userId: participant.id,
-        title: "Nuevo gasto",
-        message: `${currentAppUser.name || "Un colega"} añadió "${expenseTitle}" por ${amountNumber.toFixed(2)}€.`,
-        type: "expense",
-        ctaLabel: "Ver historial",
-        ctaScreen: "historial",
-      })
+    if (splitsError) {
+      alert("No se pudo guardar el reparto del gasto")
+      return
     }
+
+    setExpenses((prev) => [expenseData[0] as Expense, ...prev])
+    setExpenseSplits((prev) => [...splitsToInsert as any, ...prev])
+
+    const notificationTargets = participants.filter((participant) => participant.id !== currentAppUser.id)
+    await Promise.allSettled(
+      notificationTargets.map((participant) =>
+        createNotification({
+          userId: participant.id,
+          title: "Nuevo gasto",
+          message: `${currentAppUser.name || "Un colega"} añadió "${expenseTitle}" por ${amountNumber.toFixed(2)}€.`,
+          type: "expense",
+          ctaLabel: "Ver historial",
+          ctaScreen: "historial",
+        })
+      )
+    )
 
     resetExpenseForm()
     showToast("Gasto añadido ✅")
     triggerActionFlash("💸", "Gasto añadido")
     await getExpenses()
     await getExpenseSplits()
+    await loadNotifications()
   }
 
   const deleteExpense = async (expenseId: string) => {
@@ -1856,106 +1873,12 @@ export default function Home() {
 
   
   const notifications = useMemo(() => {
-    if (!currentAppUser || !user) {
-      return [...manualNotifications].sort(
-        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-      )
-    }
+    return dbNotifications
+      .filter((item) => !notificationReadIds.includes(item.id))
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+  }, [dbNotifications, notificationReadIds])
 
-    const autoNotifications: NotificationItem[] = []
-
-    receivedInvitations
-      .filter((inv) => inv.status === "pending")
-      .slice(0, 5)
-      .forEach((inv) => {
-        autoNotifications.push({
-          id: `received-invite-${inv.id}`,
-          title: "Invitación pendiente",
-          message: `Tienes una invitación pendiente para ${inv.email}.`,
-          createdAt: inv.created_at || new Date().toISOString(),
-          type: "invite",
-          ctaLabel: "Ver amigos",
-          ctaScreen: "amigos",
-        })
-      })
-
-    sentInvitations
-      .filter((inv) => inv.status === "pending")
-      .slice(0, 5)
-      .forEach((inv) => {
-        autoNotifications.push({
-          id: `sent-invite-${inv.id}`,
-          title: "Invitación enviada",
-          message: `Tu invitación a ${inv.email} sigue pendiente.`,
-          createdAt: inv.created_at || new Date().toISOString(),
-          type: "invite",
-          ctaLabel: "Ver amigos",
-          ctaScreen: "amigos",
-        })
-      })
-
-    friendBalances
-      .filter((item) => item.amount > 0)
-      .slice(0, 5)
-      .forEach((item) => {
-        autoNotifications.push({
-          id: `friend-debt-${item.friendId}`,
-          title: "Te deben dinero",
-          message: `${getUserName(item.friendId)} te debe ${item.amount.toFixed(2)}€.`,
-          createdAt: new Date().toISOString(),
-          type: "debt",
-          ctaLabel: "Ver amigos",
-          ctaScreen: "amigos",
-        })
-      })
-
-    expenses
-      .filter((expense) => {
-        const participants = expenseSplits
-          .filter((split) => split.expense_id === expense.id)
-          .map((split) => split.user_id)
-        return participants.includes(currentAppUser.id)
-      })
-      .slice(0, 6)
-      .forEach((expense) => {
-        autoNotifications.push({
-          id: `expense-${expense.id}`,
-          title: "Movimiento reciente",
-          message: `${expense.title} · ${Number(expense.amount).toFixed(2)}€ · ${getGroupName(
-            expense.group_id
-          )}`,
-          createdAt: expense.created_at || new Date().toISOString(),
-          type: "expense",
-          ctaLabel: "Ver historial",
-          ctaScreen: "historial",
-        })
-      })
-
-    const merged = [...dbNotifications, ...manualNotifications, ...autoNotifications]
-    const deduped = merged.filter(
-      (item, index, arr) => arr.findIndex((candidate) => candidate.id === item.id) === index
-    )
-
-    return deduped.sort(
-      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    )
-  }, [
-    currentAppUser,
-    user,
-    dbNotifications,
-    manualNotifications,
-    receivedInvitations,
-    sentInvitations,
-    friendBalances,
-    expenses,
-    expenseSplits,
-    groups,
-    users,
-  ])
-
-  const unreadNotificationsCount = useMemo(() => {
-    return notifications.filter((item) => !notificationReadIds.includes(item.id)).length
-  }, [notifications, notificationReadIds])
+  const unreadNotificationsCount = useMemo(() => notifications.length, [notifications])
 
 const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense.title !== "Saldar deuda"), [visibleExpenses])
   const settledExpenses = useMemo(() => visibleExpenses.filter((expense) => expense.title === "Saldar deuda"), [visibleExpenses])
@@ -2291,7 +2214,7 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
   }
 
   return (
-    <main className="min-h-screen overflow-x-hidden bg-[radial-gradient(circle_at_top,_#f8fafc,_#eef2ff_35%,_#ffffff_70%)] px-3 py-3 sm:px-5 sm:py-5 lg:p-6">
+    <main className="min-h-screen overflow-x-hidden bg-[radial-gradient(circle_at_top,_#f8fafc,_#eef2ff_35%,_#ffffff_70%)] px-4 py-4 sm:px-5 sm:py-5 lg:p-6">
       {toast && <div className="fixed bottom-6 right-6 z-[80] rounded-xl bg-black px-4 py-3 text-white shadow-2xl">{toast}</div>}
       {(menuOpen || notificationsOpen) && (
         <button
@@ -2317,7 +2240,7 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
       </div>
 
       <div className="mx-auto max-w-6xl relative">
-        <div className="mb-5 flex justify-between items-center flex-wrap gap-3">
+        <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <button
             onClick={() => setScreen("home")}
             className="flex items-center gap-3 rounded-2xl transition-all hover:scale-[1.02] active:scale-[0.98]"
@@ -2336,11 +2259,11 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
             </div>
           </button>
 
-          <div className="flex gap-2 flex-wrap items-center">
+          <div className="grid w-full grid-cols-[56px_56px_minmax(0,1fr)] gap-3 sm:flex sm:w-auto sm:flex-wrap sm:items-center">
             <div className="relative">
-              <button onClick={() => setMenuOpen(!menuOpen)} className="px-4 py-2 rounded-xl bg-white border border-gray-200">☰</button>
+              <button onClick={() => setMenuOpen(!menuOpen)} className="flex h-14 w-14 items-center justify-center rounded-2xl border border-gray-200 bg-white text-2xl shadow-sm sm:h-auto sm:w-auto sm:px-4 sm:py-2">☰</button>
               {menuOpen && (
-                <div className="absolute right-0 mt-2 w-40 bg-white border rounded-xl shadow-lg z-50">
+                <div className="absolute left-1/2 top-full z-[70] mt-2 w-[min(260px,calc(100vw-24px))] -translate-x-1/2 rounded-2xl border border-gray-200 bg-white p-2 shadow-2xl sm:left-auto sm:right-0 sm:w-40 sm:translate-x-0">
                   {menuItems.map((item) => (
                     <button
                       key={item}
@@ -2363,7 +2286,7 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
                   setNotificationsOpen((prev) => !prev)
                   if (!notificationsOpen) markAllNotificationsAsRead(notifications)
                 }}
-                className="relative rounded-xl border border-gray-200 bg-white px-4 py-2 shadow-sm"
+                className="relative flex h-14 w-14 items-center justify-center rounded-2xl border border-gray-200 bg-white text-2xl shadow-sm sm:h-auto sm:w-auto sm:px-4 sm:py-2"
               >
                 🔔
                 {unreadNotificationsCount > 0 && (
@@ -2374,7 +2297,7 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
               </button>
 
               {notificationsOpen && (
-                <div className="absolute right-0 mt-2 z-50 w-[340px] max-w-[90vw] rounded-2xl border border-gray-200 bg-white p-3 shadow-2xl">
+                <div className="absolute left-1/2 top-full z-[70] mt-2 w-[min(320px,calc(100vw-24px))] -translate-x-1/2 rounded-2xl border border-gray-200 bg-white p-3 shadow-2xl sm:left-auto sm:right-0 sm:w-[340px] sm:max-w-[90vw] sm:translate-x-0">
                   <div className="mb-3 flex items-center justify-between">
                     <div>
                       <p className="text-sm font-black text-black">Notificaciones</p>
@@ -2437,7 +2360,7 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
                 await supabase.auth.signOut()
                 setUser(null)
               }}
-              className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg shadow"
+              className="w-full rounded-2xl bg-red-500 px-4 py-3 text-sm font-semibold text-white shadow sm:w-auto sm:px-4 sm:py-2"
             >
               Cerrar sesión
             </button>
@@ -2445,19 +2368,19 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
         </div>
 
         {screen === "home" && (
-          <div className="mx-auto flex max-w-6xl animate-[fadeIn_.35s_ease] flex-col gap-5">
-            <div className="relative overflow-hidden rounded-[28px] bg-gradient-to-br from-zinc-900 via-slate-800 to-black p-4 sm:p-6 lg:p-8 text-white shadow-2xl">
+          <div className="mx-auto flex max-w-6xl animate-[fadeIn_.35s_ease] flex-col gap-6">
+            <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-zinc-900 via-slate-800 to-black p-5 sm:p-6 lg:p-8 text-white shadow-2xl">
               <div className="absolute -top-6 -left-6 h-24 w-24 rounded-full bg-white/10 blur-2xl" />
               <div className="absolute top-10 right-6 h-20 w-20 rounded-full bg-green-400/20 blur-2xl" />
               <div className="absolute bottom-0 left-1/3 h-24 w-24 rounded-full bg-red-400/20 blur-2xl" />
 
               <div className="relative z-10 grid gap-6 lg:grid-cols-[1.1fr_0.9fr] items-center">
                 <div className="flex flex-col gap-4">
-                  <div className="inline-flex max-w-full items-center rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs sm:text-sm backdrop-blur">
+                  <div className="inline-flex w-fit items-center rounded-full border border-white/20 bg-white/10 px-3 py-1 text-sm backdrop-blur">
                     Bienvenido al rincón de las cuentas pendientes
                   </div>
 
-                  <h2 className="text-[2.15rem] font-black leading-tight sm:text-4xl lg:text-5xl">
+                  <h2 className="text-3xl font-black leading-tight sm:text-4xl lg:text-5xl">
                     Si estás aquí,
                     <br />
                     <span className="text-green-300">alguien te debe pasta.</span>
@@ -2467,10 +2390,10 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
                     Grupos, balances visuales, onboarding, ranking mensual y minijuegos para meter presión.
                   </p>
 
-                  <div className="flex flex-wrap gap-2.5 pt-2">
-                    <div className="rounded-2xl bg-white/10 px-4 py-2 text-sm backdrop-blur max-w-full">Grupos reales</div>
-                    <div className="rounded-2xl bg-white/10 px-4 py-2 text-sm backdrop-blur max-w-full">Amigos y balances</div>
-                    <div className="rounded-2xl bg-white/10 px-4 py-2 text-sm backdrop-blur max-w-full">Historial y morosos</div>
+                  <div className="flex flex-wrap gap-3 pt-2">
+                    <div className="rounded-2xl bg-white/10 px-4 py-2 text-sm backdrop-blur">Grupos reales</div>
+                    <div className="rounded-2xl bg-white/10 px-4 py-2 text-sm backdrop-blur">Amigos y balances</div>
+                    <div className="rounded-2xl bg-white/10 px-4 py-2 text-sm backdrop-blur">Historial y morosos</div>
                   </div>
 
                   <div className="grid gap-3 sm:grid-cols-3">
@@ -2621,7 +2544,7 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
                     <p className="text-sm text-gray-500">Juega en pantalla completa y métele presión al drama financiero.</p>
                   </div>
 
-                  <button onClick={() => setShowGamesMenu((prev) => !prev)} className="rounded-xl bg-black px-4 py-3 text-white transition-all hover:scale-105 active:scale-95">
+                  <button onClick={() => setShowGamesMenu((prev) => !prev)} className="w-full rounded-xl bg-black px-4 py-3 text-sm text-white transition-all hover:scale-105 active:scale-95 sm:w-auto">
                     {showGamesMenu ? "Ocultar" : "Más minijuegos"}
                   </button>
                 </div>
@@ -2714,8 +2637,8 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
                     const trustInfo = getTrustInfo(balance > 0 ? balance : 0, friend.id)
 
                     return (
-                      <div key={friend.id} className={`rounded-xl border p-4 ${trustInfo.borderClass}`}>
-                        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                      <div key={friend.id} className={`max-w-full overflow-hidden rounded-xl border p-4 ${trustInfo.borderClass}`}>
+                        <div className="flex flex-col gap-3">
                           <div className="flex items-center gap-3">
                             {renderAvatar(friend.id, friend.name, "h-12 w-12", "text-sm")}
                             <div>
@@ -2724,7 +2647,7 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
                             </div>
                           </div>
 
-                          <div className="flex flex-wrap items-center gap-2">
+                          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
                             <button onClick={() => setTagModal(trustInfo)} className={`rounded-full px-3 py-2 text-sm font-semibold ${trustInfo.colorClass}`}>
                               {trustInfo.label}
                             </button>
@@ -2732,7 +2655,7 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
                             {balance < 0 && (
                               <button
                                 onClick={() => requestFriendSettlementConfirmation(friend.id, balance)}
-                                className="rounded-xl bg-emerald-600 px-4 py-3 text-white transition-all hover:scale-105 active:scale-95"
+                                className="w-full rounded-xl bg-emerald-600 px-4 py-3 text-sm text-white transition-all hover:scale-105 active:scale-95 sm:w-auto"
                               >
                                 Pedir confirmación de deuda saldada
                               </button>
@@ -2742,7 +2665,7 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
                               <>
                                 <button
                                   onClick={() => handleClaimFriendPayment(friend.id, balance)}
-                                  className="rounded-xl bg-amber-500 px-4 py-3 text-white transition-all hover:scale-105 active:scale-95"
+                                  className="w-full rounded-xl bg-amber-500 px-4 py-3 text-sm text-white transition-all hover:scale-105 active:scale-95 sm:w-auto"
                                 >
                                   Reclamar pago
                                 </button>
@@ -2760,7 +2683,7 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
                                       )
                                       if (request) confirmFriendSettlement(request)
                                     }}
-                                    className="rounded-xl bg-sky-600 px-4 py-3 text-white transition-all hover:scale-105 active:scale-95"
+                                    className="w-full rounded-xl bg-sky-600 px-4 py-3 text-sm text-white transition-all hover:scale-105 active:scale-95 sm:w-auto"
                                   >
                                     Aceptar pago y saldar deuda
                                   </button>
@@ -2768,7 +2691,7 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
                               </>
                             )}
 
-                            <button onClick={() => openFriendExpense(friend.id)} className="rounded-xl bg-black px-4 py-3 text-white transition-all hover:scale-105 active:scale-95">
+                            <button onClick={() => openFriendExpense(friend.id)} className="w-full rounded-xl bg-black px-4 py-3 text-sm text-white transition-all hover:scale-105 active:scale-95 sm:w-auto">
                               Añadir gasto directo
                             </button>
                           </div>
@@ -3466,7 +3389,7 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
                     setProfileAvatarUrl(currentAppUser?.avatar_url || "")
                     setIsEditingProfile(true)
                   }}
-                  className="rounded-xl bg-black px-4 py-3 text-white transition-all hover:scale-105 active:scale-95"
+                  className="w-full rounded-xl bg-black px-4 py-3 text-sm text-white transition-all hover:scale-105 active:scale-95 sm:w-auto"
                 >
                   Editar perfil
                 </button>
