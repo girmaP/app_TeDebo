@@ -271,6 +271,10 @@ export default function Home() {
   const [excuseOptions, setExcuseOptions] = useState<string[]>([])
   const [excuseCorrectIndex, setExcuseCorrectIndex] = useState(0)
   const [coinRainItems, setCoinRainItems] = useState<{ id: number; kind: "coin" | "trap"; left: number; top: number; value: number }[]>([])
+  const [memoryFeedback, setMemoryFeedback] = useState<Record<number, "correct" | "wrong" | undefined>>({})
+  const [excuseQuestion, setExcuseQuestion] = useState("")
+  const [excuseLives, setExcuseLives] = useState(3)
+  const [excuseAnswered, setExcuseAnswered] = useState(0)
 
   const showToast = (message: string) => {
     setToast(message)
@@ -280,6 +284,79 @@ export default function Home() {
   const triggerActionFlash = (emoji: string, text: string) => {
     setActionFlash({ emoji, text })
     setTimeout(() => setActionFlash(null), 1400)
+  }
+
+  const buildReflexTiles = () => {
+    const goodIndex = Math.floor(Math.random() * 9)
+    return Array.from({ length: 9 }, (_, index) => ({
+      id: index,
+      kind: index === goodIndex ? "money" as const : "trap" as const,
+      value: index === goodIndex ? Math.floor(Math.random() * 5) + 4 : -(Math.floor(Math.random() * 4) + 2),
+    }))
+  }
+
+  const theoryQuestions = [
+    { q: "¿Qué significa IPC?", correct: "Índice de Precios al Consumo" },
+    { q: "Si la oferta sube y la demanda se mantiene, ¿qué suele pasar con el precio?", correct: "Baja" },
+    { q: "¿Qué es ahorrar?", correct: "Guardar una parte de los ingresos para usarla después" },
+    { q: "¿Qué es un gasto fijo?", correct: "Un gasto que se repite regularmente" },
+    { q: "¿Qué impuesto pagas normalmente al comprar productos en España?", correct: "IVA" },
+    { q: "¿Qué es un presupuesto?", correct: "Un plan de ingresos y gastos" },
+    { q: "Si ingresas 100 y gastas 80, tu ahorro es...", correct: "20" },
+    { q: "¿Qué mide el PIB?", correct: "El valor de la producción de bienes y servicios" },
+    { q: "Si un precio pasa de 50€ a 60€, ¿sube o baja?", correct: "Sube" },
+    { q: "¿Qué es una deuda?", correct: "Dinero que debes a otra persona o entidad" },
+  ]
+
+  const buildExcuseRound = () => {
+    const mode = Math.floor(Math.random() * 4)
+
+    if (mode === 0) {
+      const a = Math.floor(Math.random() * 70) + 10
+      const b = Math.floor(Math.random() * 40) + 5
+      const correct = String(a + b)
+      const options = [correct, String(a + b + 3), String(Math.max(a + b - 4, 0))].sort(() => Math.random() - 0.5)
+      return { q: `Si te deben ${a}€ y luego te deben ${b}€ más, ¿cuánto te deben en total?`, options, correct }
+    }
+
+    if (mode === 1) {
+      const a = Math.floor(Math.random() * 90) + 20
+      const b = Math.floor(Math.random() * 30) + 5
+      const correct = String(a - b)
+      const options = [correct, String(a - b + 6), String(Math.max(a - b - 5, 0))].sort(() => Math.random() - 0.5)
+      return { q: `Si te deben ${a}€ y te pagan ${b}€, ¿cuánto queda pendiente?`, options, correct }
+    }
+
+    if (mode === 2) {
+      const total = (Math.floor(Math.random() * 8) + 2) * 6
+      const people = [2, 3, 4, 6][Math.floor(Math.random() * 4)]
+      const correct = String(total / people)
+      const options = [correct, String(total / people + 2), String(Math.max(total / people - 1, 0))].sort(() => Math.random() - 0.5)
+      return { q: `Una cuenta de ${total}€ se divide entre ${people} personas a partes iguales. ¿Cuánto paga cada una?`, options, correct }
+    }
+
+    const theory = theoryQuestions[Math.floor(Math.random() * theoryQuestions.length)]
+    const wrongPool = theoryQuestions.filter((item) => item.correct !== theory.correct).map((item) => item.correct)
+    const wrong1 = wrongPool[Math.floor(Math.random() * wrongPool.length)]
+    const wrong2 = wrongPool[Math.floor(Math.random() * wrongPool.length)]
+    const options = [theory.correct, wrong1, wrong2].sort(() => Math.random() - 0.5)
+    return { q: theory.q, options, correct: theory.correct }
+  }
+
+  const getMorosoTarget = () => {
+    if (moroso?.friendId) {
+      return {
+        userId: moroso.friendId,
+        label: getUserName(moroso.friendId),
+        subtitle: `${moroso.amount.toFixed(2)}€ pendientes`,
+      }
+    }
+
+    return {
+      userId: currentAppUser?.id || null,
+      label: currentAppUser?.name || "Sin morosos",
+      subtitle: "Nadie te debe, no hay morosos 😎",
+    }
   }
 
   const buildSettlementRequestMessage = ({
@@ -783,7 +860,6 @@ export default function Home() {
       setDismissedNotificationIds((prev) => Array.from(new Set([...prev, notificationId])))
     }
 
-    setNotificationReadIds((prev) => prev.filter((id) => id !== notificationId))
     showToast("Notificación eliminada 🗑️")
   }
 
@@ -804,9 +880,7 @@ export default function Home() {
     setDismissedNotificationIds((prev) =>
       Array.from(new Set([...prev, ...currentIds]))
     )
-    setNotificationReadIds((prev) =>
-      Array.from(new Set([...prev, ...currentIds]))
-    )
+
     showToast("Todas las notificaciones eliminadas 🗑️")
   }
 
@@ -1185,20 +1259,19 @@ export default function Home() {
     setActiveGame(game)
     setShowGameFullscreen(true)
     setGameRunning(true)
-    setGameTimeLeft(game === "memoria" ? 18 : 12)
+    setGameTimeLeft(game === "memoria" ? 18 : game === "excusas" ? 999 : 12)
     setGamePressure(0)
     setGameCash(0)
     setGameMessage("")
     setCoinBursts([])
     setGameRound((r) => r + 1)
+    setMemoryFeedback({})
+    setExcuseLives(3)
+    setExcuseAnswered(0)
 
     if (game === "moroso") moveMoroso()
     if (game === "reflejos") {
-      setReflexTiles(Array.from({ length: 9 }, (_, index) => ({
-        id: index,
-        kind: Math.random() > 0.7 ? "trap" : "money",
-        value: Math.random() > 0.7 ? -4 : Math.floor(Math.random() * 5) + 3,
-      })))
+      setReflexTiles(buildReflexTiles())
     }
     if (game === "memoria") {
       const sequence = Array.from({ length: 4 }, () => Math.floor(Math.random() * 4))
@@ -1221,13 +1294,17 @@ export default function Home() {
     setMemoryInput([])
     setMemoryShowing(false)
     setMemoryFlash(null)
+    setMemoryFeedback({})
     setCoinRainItems([])
     setReflexTiles([])
+    setExcuseQuestion("")
+    setExcuseLives(3)
+    setExcuseAnswered(0)
   }
 
   const moveMoroso = () => {
-    const x = Math.random() * 70
-    const y = Math.random() * 60
+    const x = Math.random() * 60 + 18
+    const y = Math.random() * 52 + 18
     setMorosoPosition({ x, y })
   }
 
@@ -1259,31 +1336,24 @@ export default function Home() {
 
     if (tile.kind === "money") {
       setGameCash((prev) => prev + tile.value)
-      setGamePressure((prev) => prev + 8)
+      setGamePressure((prev) => prev + 10)
+      setGameMessage("✅ Ese Bizum sí era bueno")
     } else {
       setGameCash((prev) => Math.max(prev + tile.value, 0))
       setGamePressure((prev) => Math.max(prev - 8, 0))
+      setGameMessage("❌ Era una trampa")
     }
 
-    setReflexTiles((prev) =>
-      prev.map((item, index) =>
-        index === tileIndex
-          ? {
-              ...item,
-              kind: Math.random() > 0.7 ? "trap" : "money",
-              value: Math.random() > 0.7 ? -4 : Math.floor(Math.random() * 5) + 3,
-            }
-          : item
-      )
-    )
+    setReflexTiles(buildReflexTiles())
   }
 
   const playMemorySequence = async (sequence: number[]) => {
+    setMemoryFeedback({})
     for (const value of sequence) {
       setMemoryFlash(value)
-      await new Promise((resolve) => setTimeout(resolve, 650))
+      await new Promise((resolve) => setTimeout(resolve, 550))
       setMemoryFlash(null)
-      await new Promise((resolve) => setTimeout(resolve, 250))
+      await new Promise((resolve) => setTimeout(resolve, 220))
     }
     setMemoryShowing(false)
   }
@@ -1296,48 +1366,73 @@ export default function Home() {
 
     const currentIndex = nextInput.length - 1
     if (memorySequence[currentIndex] !== value) {
+      setMemoryFeedback((prev) => ({ ...prev, [value]: "wrong" }))
+      setTimeout(() => setMemoryFeedback({}), 700)
       setGameCash((prev) => Math.max(prev - 5, 0))
-      setGameMessage("😵 Te liaste. Vuelve a intentarlo.")
+      setGameMessage("😵 Ese número no era. Rojo = fallo.")
       const sequence = Array.from({ length: 4 }, () => Math.floor(Math.random() * 4))
       setMemorySequence(sequence)
       setMemoryInput([])
       setMemoryShowing(true)
-      playMemorySequence(sequence)
+      setTimeout(() => playMemorySequence(sequence), 750)
       return
     }
+
+    setMemoryFeedback((prev) => ({ ...prev, [value]: "correct" }))
+    setTimeout(() => {
+      setMemoryFeedback((prev) => {
+        const copy = { ...prev }
+        delete copy[value]
+        return copy
+      })
+    }, 500)
 
     if (nextInput.length === memorySequence.length) {
       const gain = 12
       setGameCash((prev) => prev + gain)
       setGamePressure((prev) => prev + 12)
-      const sequence = Array.from({ length: 4 }, () => Math.floor(Math.random() * 4))
+      setGameMessage("🧠 Secuencia clavada")
+      const sequence = Array.from({ length: 5 }, () => Math.floor(Math.random() * 4))
       setMemorySequence(sequence)
       setMemoryInput([])
       setMemoryShowing(true)
-      playMemorySequence(sequence)
+      setTimeout(() => playMemorySequence(sequence), 650)
     }
   }
 
   const loadExcuseRound = () => {
-    const goodPayments = ["Te hago Bizum ahora", "Te paso el dinero ya", "Listo, te acabo de pagar", "Te lo mando en este momento"]
-    const excuses = ["No me deja la app", "Luego te paso", "Estoy sin batería", "Te pago mañana seguro", "Ahora voy fatal", "No tengo cobertura", "Se me olvidó", "Luego luego"]
-
-    const correct = goodPayments[Math.floor(Math.random() * goodPayments.length)]
-    const wrong1 = excuses[Math.floor(Math.random() * excuses.length)]
-    const wrong2 = excuses[Math.floor(Math.random() * excuses.length)]
-    const options = [correct, wrong1, wrong2].sort(() => Math.random() - 0.5)
-    setExcuseOptions(options)
-    setExcuseCorrectIndex(options.indexOf(correct))
+    const round = buildExcuseRound()
+    setExcuseQuestion(round.q)
+    setExcuseOptions(round.options)
+    setExcuseCorrectIndex(round.options.indexOf(round.correct))
   }
 
   const pickExcuse = (index: number) => {
     if (!gameRunning) return
+
     if (index === excuseCorrectIndex) {
       setGameCash((prev) => prev + 10)
       setGamePressure((prev) => prev + 10)
+      setGameMessage("✅ Correcta")
+      const nextAnswered = excuseAnswered + 1
+      setExcuseAnswered(nextAnswered)
+      if (nextAnswered >= 12) {
+        setGameRunning(false)
+        setGameMessage("📚 Has sobrevivido al examen de economía")
+        return
+      }
     } else {
+      const nextLives = excuseLives - 1
+      setExcuseLives(nextLives)
       setGameCash((prev) => Math.max(prev - 3, 0))
+      setGameMessage("❌ Fallaste esa pregunta")
+      if (nextLives <= 0) {
+        setGameRunning(false)
+        setGameMessage("💀 Has fallado 3 veces")
+        return
+      }
     }
+
     loadExcuseRound()
   }
 
@@ -1359,6 +1454,7 @@ export default function Home() {
 
   useEffect(() => {
     if (!gameRunning) return
+    if (activeGame === "excusas") return
     if (gameTimeLeft <= 0) {
       setGameRunning(false)
       if (gameCash > 45) setGameMessage("🔥 Le has reventado el bolsillo.")
@@ -1372,7 +1468,7 @@ export default function Home() {
     }, 1000)
 
     return () => clearTimeout(timer)
-  }, [gameRunning, gameTimeLeft, gameCash])
+  }, [gameRunning, gameTimeLeft, gameCash, activeGame])
 
   useEffect(() => {
     if (!gameRunning || activeGame !== "moroso") return
@@ -1386,12 +1482,8 @@ export default function Home() {
   useEffect(() => {
     if (!gameRunning || activeGame !== "reflejos") return
     const interval = setInterval(() => {
-      setReflexTiles(Array.from({ length: 9 }, (_, index) => ({
-        id: index,
-        kind: Math.random() > 0.75 ? "trap" : "money",
-        value: Math.random() > 0.75 ? -4 : Math.floor(Math.random() * 5) + 2,
-      })))
-    }, 900)
+      setReflexTiles(buildReflexTiles())
+    }, 950)
     return () => clearInterval(interval)
   }, [gameRunning, activeGame])
 
@@ -1400,17 +1492,29 @@ export default function Home() {
     const interval = setInterval(() => {
       const id = Date.now() + Math.random()
       setCoinRainItems((prev) => [
-        ...prev.slice(-14),
+        ...prev.slice(-20),
         {
           id,
-          kind: Math.random() > 0.75 ? "trap" : "coin",
-          left: Math.random() * 88,
-          top: Math.random() * 78,
+          kind: Math.random() > 0.55 ? "trap" : "coin",
+          left: Math.random() * 82 + 4,
+          top: -8,
           value: Math.floor(Math.random() * 6) + 2,
         },
       ])
-    }, 450)
-    return () => clearInterval(interval)
+    }, 360)
+
+    const movement = setInterval(() => {
+      setCoinRainItems((prev) =>
+        prev
+          .map((item) => ({ ...item, top: item.top + (item.kind === "coin" ? 5.5 : 6.8) }))
+          .filter((item) => item.top < 110)
+      )
+    }, 140)
+
+    return () => {
+      clearInterval(interval)
+      clearInterval(movement)
+    }
   }, [gameRunning, activeGame])
 
   const addExpense = async () => {
@@ -1997,8 +2101,8 @@ export default function Home() {
   }, [notifications, notificationReadIds])
 
   const visibleNotifications = useMemo(() => {
-    return notifications.filter((item) => !notificationReadIds.includes(item.id))
-  }, [notifications, notificationReadIds])
+    return notifications
+  }, [notifications])
 
 const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense.title !== "Saldar deuda"), [visibleExpenses])
   const settledExpenses = useMemo(() => visibleExpenses.filter((expense) => expense.title === "Saldar deuda"), [visibleExpenses])
@@ -2383,7 +2487,7 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
             <div className="relative z-[60]">
               <button onClick={() => setMenuOpen(!menuOpen)} className="px-4 py-2 rounded-xl bg-white border border-gray-200">☰</button>
               {menuOpen && (
-                <div className="absolute left-1/2 top-full mt-2 -translate-x-1/2 w-[90vw] max-w-[280px] pointer-events-auto sm:left-auto sm:right-0 sm:top-auto sm:mt-2 sm:translate-x-0 sm:w-40 bg-white border rounded-xl shadow-lg z-50">
+                <div className="fixed left-3 right-3 top-[132px] z-[80] max-h-[70vh] overflow-y-auto rounded-xl border bg-white shadow-lg pointer-events-auto sm:absolute sm:left-auto sm:right-0 sm:top-auto sm:mt-2 sm:max-h-none sm:w-40 sm:overflow-visible">
                   {menuItems.map((item) => (
                     <button
                       key={item}
@@ -2404,7 +2508,6 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
               <button
                 onClick={() => {
                   setNotificationsOpen((prev) => !prev)
-                  if (!notificationsOpen) markAllNotificationsAsRead(notifications)
                 }}
                 className="relative rounded-xl border border-gray-200 bg-white px-4 py-2 shadow-sm"
               >
@@ -2417,13 +2520,13 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
               </button>
 
               {notificationsOpen && (
-                <div className="absolute left-1/2 top-full mt-2 -translate-x-1/2 z-50 w-[92vw] max-w-[320px] pointer-events-auto sm:left-auto sm:right-0 sm:top-auto sm:mt-2 sm:translate-x-0 sm:w-[340px] rounded-2xl border border-gray-200 bg-white p-3 shadow-2xl">
-                  <div className="mb-3 flex items-center justify-between">
+                <div className="fixed left-3 right-3 top-[132px] z-[80] max-h-[70vh] overflow-y-auto rounded-2xl border border-gray-200 bg-white p-3 shadow-2xl pointer-events-auto sm:absolute sm:left-auto sm:right-0 sm:top-auto sm:mt-2 sm:max-h-[420px] sm:w-[340px] sm:overflow-y-auto">
+                  <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                       <p className="text-sm font-black text-black">Notificaciones</p>
                       <p className="text-xs text-gray-500">Invites, gastos y recordatorios.</p>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="grid grid-cols-2 gap-2 sm:flex">
                       <button
                         onClick={() => markAllNotificationsAsRead(visibleNotifications)}
                         className="rounded-lg bg-gray-100 px-3 py-2 text-xs font-semibold text-black"
@@ -2447,34 +2550,51 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
                     ) : (
                       visibleNotifications.map((item) => {
                         const unread = !notificationReadIds.includes(item.id)
+                        const parsedRequest = parseSettlementRequestMessage(item.message)
+
                         return (
-                          <button
+                          <div
                             key={item.id}
-                            onClick={() => handleNotificationClick(item)}
-                            className={`block w-full rounded-xl border p-3 text-left transition-all hover:bg-gray-50 ${
+                            className={`w-full rounded-xl border p-3 ${
                               unread ? "border-black/10 bg-gray-50" : "border-gray-200 bg-white"
                             }`}
                           >
                             <div className="flex items-start justify-between gap-3">
-                              <div>
-                                <p className="text-sm font-bold text-black">{item.title}</p>
-                                <p className="mt-1 text-xs leading-5 text-gray-600">
-                                  {parseSettlementRequestMessage(item.message)
-                                    ? `Solicitud de confirmación por ${parseSettlementRequestMessage(item.message)?.amount.toFixed(2)}€${parseSettlementRequestMessage(item.message)?.groupId ? ` · ${getGroupName(parseSettlementRequestMessage(item.message)?.groupId || null)}` : ""}`
-                                    : item.message}
-                                </p>
-                              </div>
-                              {unread && <span className="mt-1 h-2 w-2 rounded-full bg-red-500" />}
+                              <button
+                                onClick={() => handleNotificationClick(item)}
+                                className="min-w-0 flex-1 text-left"
+                              >
+                                <div className="flex items-start justify-between gap-3">
+                                  <div className="min-w-0 flex-1">
+                                    <p className="text-sm font-bold text-black">{item.title}</p>
+                                    <p className="mt-1 text-xs leading-5 text-gray-600 break-words">
+                                      {parsedRequest
+                                        ? `Solicitud de confirmación por ${parsedRequest.amount.toFixed(2)}€${parsedRequest.groupId ? ` · ${getGroupName(parsedRequest.groupId || null)}` : ""}`
+                                        : item.message}
+                                    </p>
+                                  </div>
+                                  {unread && <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-red-500" />}
+                                </div>
+                                <div className="mt-2 flex items-center justify-between gap-2">
+                                  <span className="text-[11px] text-gray-400">{formatDate(item.createdAt)}</span>
+                                  {item.ctaLabel && (
+                                    <span className="rounded-full bg-black px-2 py-1 text-[10px] font-semibold text-white">
+                                      {item.ctaLabel}
+                                    </span>
+                                  )}
+                                </div>
+                              </button>
+
+                              <button
+                                onClick={() => deleteNotification(item.id)}
+                                className="shrink-0 rounded-full bg-red-50 px-3 py-2 text-xs font-semibold text-red-700"
+                                aria-label="Borrar notificación"
+                                title="Borrar notificación"
+                              >
+                                ✕
+                              </button>
                             </div>
-                            <div className="mt-2 flex items-center justify-between">
-                              <span className="text-[11px] text-gray-400">{formatDate(item.createdAt)}</span>
-                              {item.ctaLabel && (
-                                <span className="rounded-full bg-black px-2 py-1 text-[10px] font-semibold text-white">
-                                  {item.ctaLabel}
-                                </span>
-                              )}
-                            </div>
-                          </button>
+                          </div>
                         )
                       })
                     )}
@@ -3738,18 +3858,20 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
                 <button onClick={closeGame} className="rounded-xl bg-red-500 px-4 py-2 font-semibold text-white">Salir</button>
               </div>
 
-              <div className="grid gap-3 px-4 py-4 sm:grid-cols-3 sm:px-6">
-                <div className="rounded-2xl bg-white/10 p-4 backdrop-blur">
-                  <p className="text-xs uppercase tracking-wide text-white/60">Tiempo</p>
-                  <p className="text-2xl font-black">{gameTimeLeft}s</p>
+              <div className="grid grid-cols-1 gap-3 px-4 py-4 sm:grid-cols-3 sm:px-6">
+                <div className="rounded-2xl bg-white/10 p-3 sm:p-4 backdrop-blur">
+                  <p className="text-xs uppercase tracking-wide text-white/60">{activeGame === "excusas" ? "Vidas / preguntas" : "Tiempo"}</p>
+                  <p className="text-xl font-black sm:text-2xl">
+                    {activeGame === "excusas" ? `${excuseLives} vidas · ${excuseAnswered}/12` : `${gameTimeLeft}s`}
+                  </p>
                 </div>
-                <div className="rounded-2xl bg-white/10 p-4 backdrop-blur">
+                <div className="rounded-2xl bg-white/10 p-3 sm:p-4 backdrop-blur">
                   <p className="text-xs uppercase tracking-wide text-white/60">Pasta recuperada</p>
-                  <p className="text-2xl font-black">{gameCash}€</p>
+                  <p className="text-xl font-black sm:text-2xl">{gameCash}€</p>
                 </div>
-                <div className="rounded-2xl bg-white/10 p-4 backdrop-blur">
+                <div className="rounded-2xl bg-white/10 p-3 sm:p-4 backdrop-blur">
                   <p className="text-xs uppercase tracking-wide text-white/60">Presión</p>
-                  <p className="text-2xl font-black">{gamePressure}%</p>
+                  <p className="text-xl font-black sm:text-2xl">{gamePressure}%</p>
                 </div>
               </div>
 
@@ -3759,8 +3881,8 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
                 </div>
               </div>
 
-              <div className="relative mt-4 flex-1 overflow-hidden px-4 pb-4 sm:px-6 sm:pb-6">
-                <div className="relative h-full min-h-[420px] overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-green-50 via-yellow-50 to-red-50">
+              <div className="relative mt-4 flex-1 overflow-hidden px-3 pb-3 sm:px-6 sm:pb-6">
+                <div className="relative h-full min-h-[360px] overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-green-50 via-yellow-50 to-red-50 sm:min-h-[420px]">
                   {!gameRunning && gameMessage && (
                     <div className="absolute inset-0 grid place-items-center p-4 text-center">
                       <div className="max-w-md rounded-3xl bg-white/90 p-4 shadow-xl">
@@ -3777,16 +3899,22 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
 
                   {gameRunning && activeGame === "moroso" && (
                     <>
+                      {!moroso?.friendId && (
+                        <div className="absolute left-3 right-3 top-3 z-20 rounded-2xl bg-white/90 p-3 text-center text-sm font-semibold text-black shadow">
+                          Nadie te debe, no hay morosos 😎
+                        </div>
+                      )}
+
                       <button
                         onClick={hitMoroso}
-                        className="absolute z-20 flex h-24 w-24 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-black text-4xl text-white shadow-xl transition-transform active:scale-90"
+                        className="absolute z-20 flex h-20 w-20 sm:h-24 sm:w-24 -translate-x-1/2 -translate-y-1/2 items-center justify-center overflow-hidden rounded-full bg-black text-white shadow-xl transition-transform active:scale-90"
                         style={{ left: `${morosoPosition.x}%`, top: `${morosoPosition.y}%` }}
                       >
-                        💸
+                        {renderAvatar(getMorosoTarget().userId, getMorosoTarget().label, "h-full w-full", "text-xl sm:text-2xl")}
                       </button>
 
                       {coinBursts.map((coin) => (
-                        <div key={coin.id} className="pointer-events-none absolute z-30 -translate-x-1/2 -translate-y-1/2 text-2xl font-black text-emerald-600" style={{ left: `${coin.x}%`, top: `${coin.y - 8}%` }}>
+                        <div key={coin.id} className="pointer-events-none absolute z-30 -translate-x-1/2 -translate-y-1/2 text-xl sm:text-2xl font-black text-emerald-600" style={{ left: `${coin.x}%`, top: `${coin.y - 8}%` }}>
                           +{coin.value}€
                         </div>
                       ))}
@@ -3794,9 +3922,9 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
                   )}
 
                   {gameRunning && activeGame === "reflejos" && (
-                    <div className="grid h-full gap-3 p-4 sm:grid-cols-3">
+                    <div className="grid h-full grid-cols-3 gap-2 p-3 sm:gap-3 sm:p-4">
                       {reflexTiles.map((tile, index) => (
-                        <button key={tile.id} onClick={() => hitReflexTile(index)} className={`rounded-3xl text-4xl font-black shadow-xl transition-all hover:scale-105 active:scale-95 ${tile.kind === "money" ? "bg-emerald-500 text-white" : "bg-red-500 text-white"}`}>
+                        <button key={tile.id} onClick={() => hitReflexTile(index)} className={`rounded-2xl sm:rounded-3xl text-3xl sm:text-4xl font-black shadow-xl transition-all active:scale-95 ${tile.kind === "money" ? "bg-emerald-500 text-white" : "bg-red-500 text-white"}`}>
                           {tile.kind === "money" ? "€" : "✕"}
                         </button>
                       ))}
@@ -3805,14 +3933,26 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
 
                   {gameRunning && activeGame === "memoria" && (
                     <div className="flex h-full flex-col items-center justify-center p-4 text-center">
-                      <div className="mb-6 max-w-lg rounded-3xl bg-white/90 p-4 text-black shadow-xl">
+                      <div className="mb-4 max-w-lg rounded-3xl bg-white/90 p-4 text-black shadow-xl">
                         <p className="text-lg font-black">{memoryShowing ? "Memoriza la secuencia" : "Repite la secuencia"}</p>
-                        <p className="mt-2 text-sm text-gray-600">Cuando se iluminen los números, guárdalos. Luego púlsalos en el mismo orden.</p>
+                        <p className="mt-2 text-sm text-gray-600">Los aciertos se iluminan en verde y los fallos en rojo.</p>
                       </div>
 
-                      <div className="grid gap-4 sm:grid-cols-2">
+                      <div className="grid grid-cols-2 gap-3 sm:gap-4">
                         {[0, 1, 2, 3].map((value) => (
-                          <button key={value} onClick={() => pressMemory(value)} className={`grid h-28 w-28 place-items-center rounded-3xl text-3xl font-black shadow-xl transition-all ${memoryFlash === value ? "bg-black text-white scale-110" : "bg-white text-black"}`}>
+                          <button
+                            key={value}
+                            onClick={() => pressMemory(value)}
+                            className={`grid h-24 w-24 sm:h-28 sm:w-28 place-items-center rounded-3xl text-3xl font-black shadow-xl transition-all ${
+                              memoryFlash === value
+                                ? "bg-black text-white scale-110"
+                                : memoryFeedback[value] === "correct"
+                                ? "bg-emerald-500 text-white"
+                                : memoryFeedback[value] === "wrong"
+                                ? "bg-red-500 text-white"
+                                : "bg-white text-black"
+                            }`}
+                          >
                             {value + 1}
                           </button>
                         ))}
@@ -3822,15 +3962,15 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
 
                   {gameRunning && activeGame === "excusas" && (
                     <div className="flex h-full flex-col items-center justify-center p-4">
-                      <div className="mb-6 max-w-xl rounded-3xl bg-white/90 p-4 text-center text-black shadow-xl">
-                        <p className="text-2xl font-black">Encuentra el pago real</p>
-                        <p className="mt-2 text-sm text-gray-600">Deja de tragarte excusas y caza la única opción que suena a cobro de verdad.</p>
+                      <div className="mb-4 w-full max-w-2xl rounded-3xl bg-white/90 p-4 text-center text-black shadow-xl">
+                        <p className="text-xl sm:text-2xl font-black">Economía sin excusas</p>
+                        <p className="mt-2 text-sm text-gray-600">{excuseQuestion}</p>
                       </div>
 
-                      <div className="grid w-full max-w-3xl gap-4 md:grid-cols-3">
+                      <div className="grid w-full max-w-3xl gap-3 md:grid-cols-3">
                         {excuseOptions.map((option, index) => (
-                          <button key={`${option}-${index}`} onClick={() => pickExcuse(index)} className="rounded-3xl bg-white p-5 text-left text-black shadow-xl transition-all hover:scale-[1.02] active:scale-[0.98]">
-                            <p className="text-lg font-bold">{option}</p>
+                          <button key={`${option}-${index}`} onClick={() => pickExcuse(index)} className="rounded-3xl bg-white p-4 text-left text-black shadow-xl transition-all active:scale-[0.98]">
+                            <p className="text-base sm:text-lg font-bold break-words">{option}</p>
                           </button>
                         ))}
                       </div>
@@ -3843,13 +3983,13 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
                         <button
                           key={item.id}
                           onClick={() => clickCoinRainItem(item.id)}
-                          className={`absolute z-20 grid h-16 w-16 place-items-center rounded-full text-2xl shadow-xl transition-all hover:scale-105 active:scale-95 ${item.kind === "coin" ? "bg-yellow-400 text-black" : "bg-red-500 text-white"}`}
+                          className={`absolute z-20 grid h-14 w-14 sm:h-16 sm:w-16 place-items-center rounded-full text-2xl shadow-xl transition-all active:scale-95 ${item.kind === "coin" ? "bg-yellow-400 text-black" : "bg-red-500 text-white"}`}
                           style={{ left: `${item.left}%`, top: `${item.top}%` }}
                         >
                           {item.kind === "coin" ? "🪙" : "💣"}
                         </button>
                       ))}
-                      <div className="absolute bottom-4 left-4 rounded-xl bg-white/80 px-3 py-2 text-sm text-black shadow">Monedas sí. Trampas no.</div>
+                      <div className="absolute bottom-3 left-3 rounded-xl bg-white/80 px-3 py-2 text-xs sm:text-sm text-black shadow">Cae una lluvia: monedas sí, bombas no.</div>
                     </div>
                   )}
 
