@@ -788,6 +788,8 @@ export default function Home() {
   }
 
   const deleteAllNotifications = async () => {
+    const currentIds = notifications.map((item) => item.id)
+
     if (dbNotifications.length > 0) {
       const ids = dbNotifications.map((item) => item.id)
       const { error } = await supabase.from("notifications").delete().in("id", ids)
@@ -800,9 +802,11 @@ export default function Home() {
     setDbNotifications([])
     setManualNotifications([])
     setDismissedNotificationIds((prev) =>
-      Array.from(new Set([...prev, ...notifications.map((item) => item.id)]))
+      Array.from(new Set([...prev, ...currentIds]))
     )
-    setNotificationReadIds([])
+    setNotificationReadIds((prev) =>
+      Array.from(new Set([...prev, ...currentIds]))
+    )
     showToast("Todas las notificaciones eliminadas 🗑️")
   }
 
