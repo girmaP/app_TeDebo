@@ -2597,12 +2597,12 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
                               unread ? "border-black/10 bg-gray-50" : "border-gray-200 bg-white"
                             }`}
                           >
-                            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                            <div className="flex flex-col gap-3 pr-10 sm:flex-row sm:items-start sm:justify-between sm:pr-0">
                               <button
                                 onClick={() => handleNotificationClick(item)}
                                 className="min-w-0 flex-1 text-left"
                               >
-                                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                <div className="flex flex-col gap-3 pr-10 sm:flex-row sm:items-start sm:justify-between sm:pr-0">
                                   <div className="min-w-0 flex-1">
                                     <p className="text-sm font-bold text-black">{item.title}</p>
                                     <p className="mt-1 text-xs leading-5 text-gray-600 break-words">
@@ -3407,7 +3407,7 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
                           {isAdmin && (
                             <button
                               onClick={() => deleteExpense(e.id)}
-                              className="absolute right-2 top-2 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-red-500 text-sm text-white shadow"
+                              className="absolute right-2 top-2 z-20 flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-red-500 text-base font-bold text-white shadow-lg sm:h-7 sm:w-7 sm:text-sm"
                               aria-label="Borrar gasto"
                               title="Borrar gasto"
                             >
@@ -3424,7 +3424,7 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
                                 <p className="mt-2 text-xs text-gray-500">{formatDate(e.created_at)}</p>
                               </div>
                             </div>
-                            <div className="rounded-full bg-white px-3 py-1 text-sm font-semibold text-black shadow-sm">
+                            <div className="self-start rounded-full bg-white px-3 py-1 text-sm font-semibold text-black shadow-sm sm:self-auto">
                               {e.group_id ? "Grupo" : "Individual"}
                             </div>
                           </div>
@@ -3474,7 +3474,7 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
                           {isAdmin && (
                             <button
                               onClick={() => deleteExpense(e.id)}
-                              className="absolute right-2 top-2 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-red-500 text-sm text-white shadow"
+                              className="absolute right-2 top-2 z-20 flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-red-500 text-base font-bold text-white shadow-lg sm:h-7 sm:w-7 sm:text-sm"
                               aria-label="Borrar gasto"
                               title="Borrar gasto"
                             >
@@ -3491,7 +3491,7 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
                                 <p className="mt-2 text-xs text-gray-500">{formatDate(e.created_at)}</p>
                               </div>
                             </div>
-                            <div className="rounded-full bg-white px-3 py-1 text-sm font-semibold text-green-700 shadow-sm">Saldado</div>
+                            <div className="self-start rounded-full bg-white px-3 py-1 text-sm font-semibold text-green-700 shadow-sm sm:self-auto">Saldado</div>
                           </div>
 
                           <div className="mt-3 rounded-lg bg-white p-3">
