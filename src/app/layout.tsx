@@ -680,15 +680,7 @@ export default function Home() {
   useEffect(() => {
     if (!currentAppUser?.id) return
 
-    const interval = setInterval(() => {
-      loadNotifications()
-      getExpenses()
-      getExpenseSplits()
-      getReceivedInvitations()
-      getSentInvitations()
-    }, 4000)
-
-    const handleFocusReload = () => {
+    const reloadEverythingLight = () => {
       loadNotifications()
       getExpenses()
       getExpenseSplits()
@@ -696,10 +688,18 @@ export default function Home() {
       getSentInvitations()
     }
 
+    const interval = setInterval(() => {
+      reloadEverythingLight()
+    }, 4000)
+
+    const handleFocusReload = () => {
+      reloadEverythingLight()
+    }
+
     window.addEventListener("focus", handleFocusReload)
     document.addEventListener("visibilitychange", handleFocusReload)
 
-    const realtimeChannel = supabase
+    const channel = supabase
       .channel(`tedebo-live-${currentAppUser.id}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "expenses" }, () => {
         getExpenses()
@@ -720,7 +720,7 @@ export default function Home() {
       clearInterval(interval)
       window.removeEventListener("focus", handleFocusReload)
       document.removeEventListener("visibilitychange", handleFocusReload)
-      supabase.removeChannel(realtimeChannel)
+      supabase.removeChannel(channel)
     }
   }, [currentAppUser?.id])
 
