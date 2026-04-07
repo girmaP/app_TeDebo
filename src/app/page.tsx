@@ -2597,12 +2597,12 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
                               unread ? "border-black/10 bg-gray-50" : "border-gray-200 bg-white"
                             }`}
                           >
-                            <div className="flex flex-col gap-3 pr-10 sm:flex-row sm:items-start sm:justify-between sm:pr-0">
+                            <div className="flex items-start justify-between gap-3">
                               <button
                                 onClick={() => handleNotificationClick(item)}
                                 className="min-w-0 flex-1 text-left"
                               >
-                                <div className="flex flex-col gap-3 pr-10 sm:flex-row sm:items-start sm:justify-between sm:pr-0">
+                                <div className="flex items-start justify-between gap-3">
                                   <div className="min-w-0 flex-1">
                                     <p className="text-sm font-bold text-black">{item.title}</p>
                                     <p className="mt-1 text-xs leading-5 text-gray-600 break-words">
@@ -3403,17 +3403,7 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
                   ) : (
                     <ul className="flex flex-col gap-3">
                       {normalExpenses.map((e) => (
-                        <li key={e.id} className="relative rounded-xl border bg-gray-50 p-4 shadow-sm overflow-hidden">
-                          {isAdmin && (
-                            <button
-                              onClick={() => deleteExpense(e.id)}
-                              className="absolute right-2 top-2 z-20 flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-red-500 text-base font-bold text-white shadow-lg sm:h-7 sm:w-7 sm:text-sm"
-                              aria-label="Borrar gasto"
-                              title="Borrar gasto"
-                            >
-                              ✕
-                            </button>
-                          )}
+                        <li key={e.id} className="rounded-xl border bg-gray-50 p-4 shadow-sm overflow-hidden">
                           <div className="flex items-start justify-between gap-3">
                             <div className="flex items-start gap-3">
                               {renderAvatar(e.paid_by, getUserName(e.paid_by), "h-11 w-11", "text-sm")}
@@ -3424,8 +3414,20 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
                                 <p className="mt-2 text-xs text-gray-500">{formatDate(e.created_at)}</p>
                               </div>
                             </div>
-                            <div className="self-start rounded-full bg-white px-3 py-1 text-sm font-semibold text-black shadow-sm sm:self-auto">
-                              {e.group_id ? "Grupo" : "Individual"}
+                            <div className="flex shrink-0 items-center gap-2 self-start sm:self-auto">
+                              <div className="rounded-full bg-white px-3 py-1 text-sm font-semibold text-black shadow-sm">
+                                {e.group_id ? "Grupo" : "Individual"}
+                              </div>
+                              {isAdmin && (
+                                <button
+                                  onClick={() => deleteExpense(e.id)}
+                                  className="flex h-8 w-8 items-center justify-center rounded-full bg-red-500 text-sm font-bold text-white shadow"
+                                  aria-label="Borrar gasto"
+                                  title="Borrar gasto"
+                                >
+                                  ✕
+                                </button>
+                              )}
                             </div>
                           </div>
 
@@ -3434,7 +3436,7 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
                             <p className="mt-1 text-sm text-black">{getExpensePeopleSummary(e.id)}</p>
                           </div>
 
-                          {isAdmin && <button onClick={() => deleteExpense(e.id)} className="mt-3 w-full rounded bg-black px-3 py-3 text-sm text-white sm:w-auto sm:py-2">Borrar gasto</button>}
+                          
                         </li>
                       ))}
                     </ul>
@@ -3470,17 +3472,7 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
                   ) : (
                     <ul className="flex flex-col gap-3">
                       {settledExpenses.map((e) => (
-                        <li key={e.id} className="relative rounded-xl border bg-green-50 p-4 shadow-sm overflow-hidden">
-                          {isAdmin && (
-                            <button
-                              onClick={() => deleteExpense(e.id)}
-                              className="absolute right-2 top-2 z-20 flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-red-500 text-base font-bold text-white shadow-lg sm:h-7 sm:w-7 sm:text-sm"
-                              aria-label="Borrar gasto"
-                              title="Borrar gasto"
-                            >
-                              ✕
-                            </button>
-                          )}
+                        <li key={e.id} className="rounded-xl border bg-green-50 p-4 shadow-sm overflow-hidden">
                           <div className="flex items-start justify-between gap-3">
                             <div className="flex items-start gap-3">
                               {renderAvatar(e.paid_by, getUserName(e.paid_by), "h-11 w-11", "text-sm")}
@@ -3491,7 +3483,19 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
                                 <p className="mt-2 text-xs text-gray-500">{formatDate(e.created_at)}</p>
                               </div>
                             </div>
-                            <div className="self-start rounded-full bg-white px-3 py-1 text-sm font-semibold text-green-700 shadow-sm sm:self-auto">Saldado</div>
+                            <div className="flex shrink-0 items-center gap-2 self-start sm:self-auto">
+                            <div className="rounded-full bg-white px-3 py-1 text-sm font-semibold text-green-700 shadow-sm">Saldado</div>
+                            {isAdmin && (
+                              <button
+                                onClick={() => deleteExpense(e.id)}
+                                className="flex h-8 w-8 items-center justify-center rounded-full bg-red-500 text-sm font-bold text-white shadow"
+                                aria-label="Borrar gasto"
+                                title="Borrar gasto"
+                              >
+                                ✕
+                              </button>
+                            )}
+                          </div>
                           </div>
 
                           <div className="mt-3 rounded-lg bg-white p-3">
