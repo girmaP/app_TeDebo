@@ -815,6 +815,31 @@ export default function Home() {
     return false
   }
 
+
+  const shareInviteLink = async () => {
+    const appUrl =
+      typeof window !== "undefined"
+        ? window.location.origin
+        : "https://app-te-debo.vercel.app"
+
+    const inviteText = `${currentAppUser?.name || "Un colega"} te invita a TeDebo 💸\n\nÚnete aquí: ${appUrl}\n\nSi además te mandé invitación por correo, entra o regístrate con ese mismo email.`
+
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: "Únete a TeDebo",
+          text: inviteText,
+          url: appUrl,
+        })
+        showToast("Link de invitación compartido 🚀")
+        return
+      }
+    } catch {}
+
+    const copied = await copyText(inviteText)
+    showToast(copied ? "Link de invitación copiado 🔗" : "No se pudo copiar el link")
+  }
+
   const markAllNotificationsAsRead = async (items: NotificationItem[]) => {
     const ids = items.map((item) => item.id)
     setNotificationReadIds((prev) => Array.from(new Set([...prev, ...ids])))
@@ -2909,7 +2934,7 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
         )}
 
         {screen === "amigos" && (
-          <div className="mx-auto flex max-w-4xl animate-[fadeIn_.35s_ease] flex-col gap-4">
+          <div className="mx-auto flex max-w-4xl animate-[fadeIn_.35s_ease] flex-col gap-4 max-h-[calc(100vh-180px)] overflow-y-auto pr-1">
             <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
               <h2 className="text-2xl font-semibold text-black">Colegas</h2>
               <p className="mt-1 text-sm text-gray-500">Aquí ves el balance global contigo y cada colega, con su nivel de confianza incluido.</p>
@@ -2929,7 +2954,13 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
                             {renderAvatar(friend.id, friend.name, "h-12 w-12", "text-sm")}
                             <div>
                               <p className="text-lg font-semibold text-black">{friend.name}</p>
-                              <p className="text-sm text-gray-600">{getFriendBalanceText(friend.id)}</p>
+                              <p className={`text-sm ${
+                              (friendBalances.find((item) => item.friendId === friend.id)?.amount || 0) > 0
+                                ? "text-emerald-700"
+                                : (friendBalances.find((item) => item.friendId === friend.id)?.amount || 0) < 0
+                                ? "text-red-600"
+                                : "text-gray-600"
+                            }`}>{getFriendBalanceText(friend.id)}</p>
                             </div>
                           </div>
 
@@ -3016,6 +3047,24 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
                     )
                   })
                 )}
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h3 className="text-xl font-semibold text-black">Invitar por link</h3>
+                  <p className="mt-1 text-sm text-gray-500">
+                    Comparte un acceso rápido a TeDebo. Si además mandaste invitación por correo, esa persona debe entrar con ese mismo email.
+                  </p>
+                </div>
+
+                <button
+                  onClick={shareInviteLink}
+                  className="rounded-xl bg-black px-4 py-3 text-white transition-all hover:scale-105 active:scale-95"
+                >
+                  Copiar / compartir link
+                </button>
               </div>
             </div>
 
@@ -3253,7 +3302,7 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
               <h2 className="text-xl font-semibold text-black">Balances por grupo</h2>
               <p className="mt-1 text-sm text-gray-500">Visual más claro para entender quién debe y cuánto.</p>
 
-              <div className="mt-4 flex flex-col gap-4">
+              <div className="mt-4 flex max-h-[420px] flex-col gap-4 overflow-y-auto pr-1">
                 {groups.length === 0 ? (
                   <p className="text-gray-500">No hay grupos todavía</p>
                 ) : (
@@ -3366,7 +3415,7 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
               <h2 className="text-xl font-semibold text-black">Balances con colegas</h2>
               <p className="mt-1 text-sm text-gray-500">La misma idea que en grupos, pero para deudas directas entre vosotros.</p>
 
-              <div className="mt-4 flex flex-col gap-4">
+              <div className="mt-4 flex max-h-[420px] flex-col gap-4 overflow-y-auto pr-1">
                 {friendBalances.length === 0 ? (
                   <p className="text-gray-500">No hay balances directos con colegas.</p>
                 ) : (
@@ -3392,7 +3441,7 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
                             {renderAvatar(friendItem.friendId, friend?.name, "h-12 w-12", "text-sm")}
                             <div>
                               <h3 className="font-bold text-black">{friend?.name || getUserName(friendItem.friendId)}</h3>
-                              <p className={`mt-1 text-sm ${friendItem.amount > 0 ? "text-red-600" : friendItem.amount < 0 ? "text-emerald-700" : "text-gray-500"}`}>
+                              <p className={`mt-1 text-sm ${friendItem.amount > 0 ? "text-emerald-700" : friendItem.amount < 0 ? "text-red-600" : "text-gray-500"}`}>
                                 {friendItem.amount > 0
                                   ? `${getUserName(friendItem.friendId)} te debe ${absAmount.toFixed(2)}€`
                                   : friendItem.amount < 0
