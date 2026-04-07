@@ -902,6 +902,26 @@ export default function Home() {
     showToast("Todas las notificaciones eliminadas 🗑️")
   }
 
+  const removeFriend = async (friendId: string) => {
+    if (!currentAppUser) return
+
+    const confirmed = window.confirm("¿Seguro que quieres eliminar a este amigo?")
+    if (!confirmed) return
+
+    const { error } = await supabase
+      .from("friendships")
+      .delete()
+      .or(`and(user_id.eq.${currentAppUser.id},friend_id.eq.${friendId}),and(user_id.eq.${friendId},friend_id.eq.${currentAppUser.id})`)
+
+    if (error) {
+      alert("No se pudo eliminar al amigo")
+      return
+    }
+
+    showToast("Amigo eliminado ❌")
+    await getFriendships()
+  }
+
   const addUser = async () => {
     if (!name.trim() || !user || !currentAppUser) {
       alert("Introduce un correo")
@@ -2918,6 +2938,13 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
                               {trustInfo.label}
                             </button>
 
+                            <button
+                              onClick={() => removeFriend(friend.id)}
+                              className="rounded-xl bg-red-50 px-3 py-2 text-sm font-semibold text-red-700 transition-all hover:scale-105 active:scale-95"
+                            >
+                              Eliminar amigo
+                            </button>
+
                             {balance < 0 && (
                               <button
                                 onClick={() => requestFriendSettlementConfirmation(friend.id, balance)}
@@ -3376,7 +3403,17 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
                   ) : (
                     <ul className="flex flex-col gap-3">
                       {normalExpenses.map((e) => (
-                        <li key={e.id} className="rounded-xl border bg-gray-50 p-4 shadow-sm overflow-hidden">
+                        <li key={e.id} className="relative rounded-xl border bg-gray-50 p-4 shadow-sm overflow-hidden">
+                          {isAdmin && (
+                            <button
+                              onClick={() => deleteExpense(e.id)}
+                              className="absolute right-2 top-2 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-red-500 text-sm text-white shadow"
+                              aria-label="Borrar gasto"
+                              title="Borrar gasto"
+                            >
+                              ✕
+                            </button>
+                          )}
                           <div className="flex items-start justify-between gap-3">
                             <div className="flex items-start gap-3">
                               {renderAvatar(e.paid_by, getUserName(e.paid_by), "h-11 w-11", "text-sm")}
@@ -3433,7 +3470,17 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
                   ) : (
                     <ul className="flex flex-col gap-3">
                       {settledExpenses.map((e) => (
-                        <li key={e.id} className="rounded-xl border bg-green-50 p-4 shadow-sm overflow-hidden">
+                        <li key={e.id} className="relative rounded-xl border bg-green-50 p-4 shadow-sm overflow-hidden">
+                          {isAdmin && (
+                            <button
+                              onClick={() => deleteExpense(e.id)}
+                              className="absolute right-2 top-2 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-red-500 text-sm text-white shadow"
+                              aria-label="Borrar gasto"
+                              title="Borrar gasto"
+                            >
+                              ✕
+                            </button>
+                          )}
                           <div className="flex items-start justify-between gap-3">
                             <div className="flex items-start gap-3">
                               {renderAvatar(e.paid_by, getUserName(e.paid_by), "h-11 w-11", "text-sm")}
