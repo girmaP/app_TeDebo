@@ -2577,12 +2577,12 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
                               unread ? "border-black/10 bg-gray-50" : "border-gray-200 bg-white"
                             }`}
                           >
-                            <div className="flex items-start justify-between gap-3">
+                            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                               <button
                                 onClick={() => handleNotificationClick(item)}
                                 className="min-w-0 flex-1 text-left"
                               >
-                                <div className="flex items-start justify-between gap-3">
+                                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                                   <div className="min-w-0 flex-1">
                                     <p className="text-sm font-bold text-black">{item.title}</p>
                                     <p className="mt-1 text-xs leading-5 text-gray-600 break-words">
@@ -3340,10 +3340,10 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
         {screen === "historial" && (
           <div className="mx-auto flex max-w-4xl animate-[fadeIn_.35s_ease] flex-col gap-4">
             {isAdmin && (
-              <div className="flex justify-end">
+              <div className="flex justify-stretch sm:justify-end">
                 <button
                   onClick={deleteAllHistory}
-                  className="rounded-xl bg-black px-4 py-3 text-sm font-semibold text-white"
+                  className="w-full rounded-xl bg-black px-4 py-3 text-sm font-semibold text-white sm:w-auto"
                 >
                   Borrar historial completo
                 </button>
@@ -3362,7 +3362,7 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
                 {isAdmin && (
                   <button
                     onClick={deleteAllNormalHistory}
-                    className="rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white"
+                    className="w-full rounded-xl bg-red-600 px-4 py-3 text-sm font-semibold text-white sm:w-auto sm:py-2"
                   >
                     Borrar todo
                   </button>
@@ -3376,7 +3376,7 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
                   ) : (
                     <ul className="flex flex-col gap-3">
                       {normalExpenses.map((e) => (
-                        <li key={e.id} className="rounded-xl border bg-gray-50 p-4 shadow-sm">
+                        <li key={e.id} className="rounded-xl border bg-gray-50 p-4 shadow-sm overflow-hidden">
                           <div className="flex items-start justify-between gap-3">
                             <div className="flex items-start gap-3">
                               {renderAvatar(e.paid_by, getUserName(e.paid_by), "h-11 w-11", "text-sm")}
@@ -3397,7 +3397,7 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
                             <p className="mt-1 text-sm text-black">{getExpensePeopleSummary(e.id)}</p>
                           </div>
 
-                          {isAdmin && <button onClick={() => deleteExpense(e.id)} className="mt-3 rounded bg-black px-3 py-2 text-white">Borrar gasto</button>}
+                          {isAdmin && <button onClick={() => deleteExpense(e.id)} className="mt-3 w-full rounded bg-black px-3 py-3 text-sm text-white sm:w-auto sm:py-2">Borrar gasto</button>}
                         </li>
                       ))}
                     </ul>
@@ -3433,7 +3433,7 @@ const normalExpenses = useMemo(() => visibleExpenses.filter((expense) => expense
                   ) : (
                     <ul className="flex flex-col gap-3">
                       {settledExpenses.map((e) => (
-                        <li key={e.id} className="rounded-xl border bg-green-50 p-4 shadow-sm">
+                        <li key={e.id} className="rounded-xl border bg-green-50 p-4 shadow-sm overflow-hidden">
                           <div className="flex items-start justify-between gap-3">
                             <div className="flex items-start gap-3">
                               {renderAvatar(e.paid_by, getUserName(e.paid_by), "h-11 w-11", "text-sm")}
